@@ -56,6 +56,7 @@
 | **Drift** | Shift (Hold) |
 | **Dive / Boost** | Control |
 | **Reset Position** | R |
+| **Changer la couleur du pingouin** | O (noir → bleu → rouge → rose → vert → …) |
 
 ---
 
