@@ -62,6 +62,16 @@ public static class PenguinMaterialAlign
         return result;
     }
 
+    public static Material FindMatchingForReferenceSlot(Material referenceSlot, Material[] variantMaterials)
+    {
+        if (referenceSlot == null || variantMaterials == null || variantMaterials.Length == 0)
+            return null;
+        var key = KeyFromMaterialName(referenceSlot.name);
+        if (string.IsNullOrEmpty(key))
+            return null;
+        return FindMaterialByKey(variantMaterials, key);
+    }
+
     static Material FindMaterialByKey(Material[] materials, string key)
     {
         foreach (var m in materials)
@@ -75,13 +85,25 @@ public static class PenguinMaterialAlign
         return null;
     }
 
-    static bool IsSwappableColoredPart(string rawName)
+    public static bool IsFixedPartFromBlackSkin(string rawName)
     {
         if (string.IsNullOrEmpty(rawName))
             return false;
         var s = rawName.ToLowerInvariant();
         if (s.Contains("eye") || s.Contains("yeux") || s.Contains("beak") || s.Contains("bec") ||
-            s.Contains("foot") || s.Contains("pied") || s.Contains("nose") || s.Contains("nez"))
+            s.Contains("foot") || s.Contains("feet") || s.Contains("pied") || s.Contains("patte") ||
+            s.Contains("nose") || s.Contains("nez") || s.Contains("flipper") || s.Contains("aileron") ||
+            s.Contains("mouth") || s.Contains("bouche"))
+            return true;
+        return false;
+    }
+
+    static bool IsSwappableColoredPart(string rawName)
+    {
+        if (string.IsNullOrEmpty(rawName))
+            return false;
+        var s = rawName.ToLowerInvariant();
+        if (IsFixedPartFromBlackSkin(rawName))
             return false;
 
         var k = KeyFromMaterialName(rawName);
@@ -89,7 +111,8 @@ public static class PenguinMaterialAlign
             return false;
         k = k.ToLowerInvariant();
         return k.Contains("body") || k.Contains("robe") || k.Contains("cloth") || k.Contains("suit") ||
-               k.Contains("tux") || k.Contains("veste") || k.Contains("maillot") || k.Contains("costume");
+               k.Contains("tux") || k.Contains("veste") || k.Contains("maillot") || k.Contains("costume") ||
+               k.Contains("shirt") || k.Contains("torso") || k.Contains("dress");
     }
 
     static string KeyFromMaterialName(string raw)

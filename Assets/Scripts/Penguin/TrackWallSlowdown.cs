@@ -37,8 +37,8 @@ public class TrackWallSlowdown : MonoBehaviour
         v *= damp;
         _rb.linearVelocity = v;
 
-        Vector3 av = _rb.angularVelocity;
-        _rb.angularVelocity = new Vector3(0f, av.y * yawAngularRetentionOnWall, 0f);
+        float angDamp = Mathf.Lerp(damp, 1f, yawAngularRetentionOnWall);
+        _rb.angularVelocity *= angDamp;
     }
 
     static bool IsTrackWall(Collision c)

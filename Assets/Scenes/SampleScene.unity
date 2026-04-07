@@ -606,7 +606,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   turnSpeedDegPerSec: 130
-  lateralAcceleration: 34
+  maxRotationDegreesPerSec: 145
+  groundedRayLength: 7
+  raycastHeightOffset: 0.35
+  groundSampleWidth: 0.5
+  groundMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  groundNormalSmooth: 32
+  targetRotationSmooth: 11
+  minVelocityForForward: 0.85
+  forwardFollowLerp: 3.2
+  leanNoseTowardIceDegrees: 12
 --- !u!114 &2012845609
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -626,6 +637,7 @@ MonoBehaviour:
     m_Bits: 4294967295
   maxKmhForIdleNudge: 0.85
   idleNudgeAcceleration: 5.5
+  groundSurfacePadding: -0.22
 --- !u!114 &2012845610
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -665,6 +677,7 @@ MonoBehaviour:
     - {fileID: 9003353085549565770, guid: cdc7f5b8c9e3a6145925f72fb50757ca, type: 3}
     - {fileID: -8848810374240701247, guid: cdc7f5b8c9e3a6145925f72fb50757ca, type: 3}
   startSkinIndex: 0
+  robeMaterialSlots: []
 --- !u!114 &2012845611
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -803,11 +816,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a1b2c3d4e5f6789011223344556677aa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  firstStraightLength: 56
-  firstStraightSegments: 28
-  courseLegs: 14
-  legStraightLength: 52
-  legStraightSegments: 26
+  firstStraightLength: 78
+  firstStraightSegments: 36
+  courseLegs: 24
+  legStraightLength: 72
+  legStraightSegments: 34
   arcRadius: 68
   arcSweepDegrees: 58
   arcSegments: 28

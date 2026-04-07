@@ -4,20 +4,11 @@ using UnityEngine;
 public class PenguinBodyCollider : MonoBehaviour
 {
     [SerializeField] PhysicsMaterial bouncyMaterial;
-    [SerializeField] float slopeGrade = 0.25f;
-    [SerializeField] float facingYawDegrees = 0f;
 
     void Awake()
     {
-        ApplySlopeRotation();
         ConfigureRigidbody();
         RebuildCapsuleFromMesh();
-    }
-
-    void ApplySlopeRotation()
-    {
-        float pitchDeg = Mathf.Atan(slopeGrade) * Mathf.Rad2Deg;
-        transform.rotation = Quaternion.Euler(pitchDeg, facingYawDegrees, 0f);
     }
 
     void ConfigureRigidbody()
@@ -28,7 +19,7 @@ public class PenguinBodyCollider : MonoBehaviour
         rb.linearDamping = 0.035f;
         rb.angularDamping = 0.28f;
         rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-        rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+        rb.constraints = RigidbodyConstraints.None;
         rb.angularVelocity = Vector3.zero;
     }
 
@@ -54,7 +45,8 @@ public class PenguinBodyCollider : MonoBehaviour
             cap = gameObject.AddComponent<CapsuleCollider>();
 
         cap.direction = 1;
-        cap.center = b.center;
+        float sink = Mathf.Min(b.size.y * 0.06f, 0.045f);
+        cap.center = new Vector3(b.center.x, b.center.y - sink, b.center.z);
         cap.height = Mathf.Max(b.size.y, 0.0001f);
         cap.radius = Mathf.Max(b.extents.x, b.extents.z, cap.height * 0.12f, 0.0001f);
 

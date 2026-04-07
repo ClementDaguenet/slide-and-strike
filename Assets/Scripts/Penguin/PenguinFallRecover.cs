@@ -62,14 +62,17 @@ public class PenguinFallRecover : MonoBehaviour
         if (hit.collider != _trackCollider)
             return;
 
-        float lift = ComputeLift();
-        _lastOnTrackPos = hit.point + hit.normal * lift;
+        var cap = GetComponent<CapsuleCollider>();
+        _lastOnTrackPos = cap != null
+            ? PenguinCapsulePlacement.PivotPositionForBottomAt(transform, cap, hit.point, hit.normal, -0.12f)
+            : hit.point + hit.normal * FallbackLift();
         _hasLastOnTrack = true;
     }
 
     Vector3 ResolveRecoverPosition(Bounds wb)
     {
-        float lift = ComputeLift();
+        var cap = GetComponent<CapsuleCollider>();
+        float liftLegacy = FallbackLift();
         Vector3 candidate;
 
         if (_hasLastOnTrack)
@@ -80,9 +83,11 @@ public class PenguinFallRecover : MonoBehaviour
             Vector3 rayFrom = new Vector3(candidate.x, wb.max.y + 220f, candidate.z);
             if (Physics.Raycast(rayFrom, Vector3.down, out RaycastHit hit, 500f, groundMask,
                     QueryTriggerInteraction.Ignore))
-                candidate = hit.point + hit.normal * lift;
+                candidate = cap != null
+                    ? PenguinCapsulePlacement.PivotPositionForBottomAt(transform, cap, hit.point, hit.normal, -0.12f)
+                    : hit.point + hit.normal * liftLegacy;
             else
-                candidate.y = wb.center.y + lift;
+                candidate.y = wb.center.y + liftLegacy;
         }
 
         Vector3 refineFrom = new Vector3(candidate.x, candidate.y + 18f, candidate.z);
@@ -90,7 +95,9 @@ public class PenguinFallRecover : MonoBehaviour
                 QueryTriggerInteraction.Ignore))
         {
             if (h2.collider == _trackCollider)
-                candidate = h2.point + h2.normal * lift;
+                candidate = cap != null
+                    ? PenguinCapsulePlacement.PivotPositionForBottomAt(transform, cap, h2.point, h2.normal, -0.12f)
+                    : h2.point + h2.normal * liftLegacy;
         }
 
         return candidate;
@@ -105,7 +112,7 @@ public class PenguinFallRecover : MonoBehaviour
         _rb.angularVelocity = Vector3.zero;
     }
 
-    float ComputeLift()
+    float FallbackLift()
     {
         var cap = GetComponent<CapsuleCollider>();
         if (cap == null)

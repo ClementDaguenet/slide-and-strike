@@ -13,6 +13,21 @@ public class CameraFollow : MonoBehaviour
     Transform _target;
     Vector3 _posVelocity;
 
+    static Vector3 HorizontalForward(Transform t)
+    {
+        Vector3 f = t.forward;
+        f.y = 0f;
+        if (f.sqrMagnitude < 1e-6f)
+        {
+            f = t.rotation * Vector3.forward;
+            f.y = 0f;
+        }
+
+        if (f.sqrMagnitude < 1e-6f)
+            f = Vector3.forward;
+        return f.normalized;
+    }
+
     void Start()
     {
         var go = GameObject.Find(targetName);
@@ -34,12 +49,13 @@ public class CameraFollow : MonoBehaviour
             SnapBehind();
         }
 
-        Quaternion yaw = Quaternion.AngleAxis(cameraYawOffsetDegrees, _target.up);
-        Vector3 behind = yaw * (-_target.forward * followDistance);
-        Vector3 desiredPos = _target.position + behind + _target.up * heightAboveTarget;
+        Vector3 hf = HorizontalForward(_target);
+        Quaternion yaw = Quaternion.AngleAxis(cameraYawOffsetDegrees, Vector3.up);
+        Vector3 behind = yaw * (-hf * followDistance);
+        Vector3 desiredPos = _target.position + behind + Vector3.up * heightAboveTarget;
         transform.position = Vector3.SmoothDamp(transform.position, desiredPos, ref _posVelocity, positionSmoothTime);
 
-        Vector3 lookPoint = _target.position + _target.up * lookAtHeightOnTarget;
+        Vector3 lookPoint = _target.position + Vector3.up * lookAtHeightOnTarget;
         Vector3 toTarget = lookPoint - transform.position;
         if (toTarget.sqrMagnitude < 1e-4f)
             return;
@@ -52,10 +68,11 @@ public class CameraFollow : MonoBehaviour
     {
         if (_target == null)
             return;
-        Quaternion yaw = Quaternion.AngleAxis(cameraYawOffsetDegrees, _target.up);
-        Vector3 behind = yaw * (-_target.forward * followDistance);
-        transform.position = _target.position + behind + _target.up * heightAboveTarget;
-        Vector3 lookPoint = _target.position + _target.up * lookAtHeightOnTarget;
+        Vector3 hf = HorizontalForward(_target);
+        Quaternion yaw = Quaternion.AngleAxis(cameraYawOffsetDegrees, Vector3.up);
+        Vector3 behind = yaw * (-hf * followDistance);
+        transform.position = _target.position + behind + Vector3.up * heightAboveTarget;
+        Vector3 lookPoint = _target.position + Vector3.up * lookAtHeightOnTarget;
         transform.rotation = Quaternion.LookRotation(lookPoint - transform.position);
         _posVelocity = Vector3.zero;
     }

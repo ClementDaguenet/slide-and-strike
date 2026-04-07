@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,20 +8,27 @@ using UnityEngine;
 [DefaultExecutionOrder(-50)]
 public class CurvedIceTrack : MonoBehaviour
 {
-    [SerializeField] float firstStraightLength = 56f;
-    [SerializeField] [Min(4)] int firstStraightSegments = 28;
+    [SerializeField] float firstStraightLength = 78f;
+    [SerializeField] [Min(4)] int firstStraightSegments = 36;
     [SerializeField] [Min(0f)] float firstStraightVerticalDrop = 14f;
 
     [SerializeField] float trackYawDegrees = 270f;
 
-    [SerializeField] [Min(1)] int courseLegs = 14;
-    [SerializeField] float legStraightLength = 52f;
-    [SerializeField] [Min(4)] int legStraightSegments = 26;
+    [SerializeField] [Min(1)] int courseLegs = 24;
+    [SerializeField] float legStraightLength = 72f;
+    [SerializeField] [Min(4)] int legStraightSegments = 34;
     [SerializeField] float arcRadius = 68f;
     [SerializeField] [Range(25f, 130f)] float arcSweepDegrees = 68f;
     [SerializeField] [Min(6)] int arcSegments = 26;
     [SerializeField] float verticalDropPerArc = 16f;
     [SerializeField] bool alternateLeftRightTurns = true;
+    [SerializeField] bool randomizeCourse = true;
+    [SerializeField] int courseRandomSeed;
+    [SerializeField] float legStraightLengthJitter = 16f;
+    [SerializeField] float arcSweepDegreesJitter = 22f;
+    [SerializeField] float arcRadiusJitter = 18f;
+    [SerializeField] float verticalDropPerArcJitter = 6f;
+    [SerializeField] float firstStraightLengthJitter = 10f;
 
     [SerializeField] float trackWidth = 15f;
     [SerializeField] [Min(1)] int widthSegments = 4;
@@ -72,18 +80,43 @@ public class CurvedIceTrack : MonoBehaviour
         var mids = new List<Vector3>(512);
         var rights = new List<Vector3>(512);
 
-        Vector3 pos = new Vector3(-firstStraightLength, 0f, 0f);
-        Vector3 fwd = Vector3.right;
-        float sweepRad = arcSweepDegrees * Mathf.Deg2Rad;
+        int seed = courseRandomSeed != 0
+            ? courseRandomSeed
+            : unchecked((int)(DateTime.UtcNow.Ticks & 0x7FFFFFFF) ^ GetInstanceID());
+        var rng = randomizeCourse ? new System.Random(seed) : null;
 
-        AppendStraight(ref pos, ref fwd, firstStraightLength, firstStraightSegments, mids, rights, -firstStraightVerticalDrop);
+        float fsLen = firstStraightLength + (rng != null ? (float)(rng.NextDouble() * 2.0 - 1.0) * firstStraightLengthJitter : 0f);
+        fsLen = Mathf.Max(18f, fsLen);
+        int fsSeg = Mathf.Clamp(Mathf.RoundToInt(firstStraightSegments * (fsLen / Mathf.Max(1f, firstStraightLength))), 8, 48);
+
+        Vector3 pos = new Vector3(-fsLen, 0f, 0f);
+        Vector3 fwd = Vector3.right;
+
+        CurvedIceTrackPath.AppendStraight(ref pos, ref fwd, fsLen, fsSeg, mids, rights, -firstStraightVerticalDrop);
 
         for (int leg = 0; leg < courseLegs; leg++)
         {
-            int sign = alternateLeftRightTurns ? (leg % 2 == 0 ? 1 : -1) : 1;
-            float drop = verticalDropPerArc;
-            AppendArc(ref pos, ref fwd, arcRadius, sweepRad, drop, sign, arcSegments, mids, rights);
-            AppendStraight(ref pos, ref fwd, legStraightLength, legStraightSegments, mids, rights);
+            int sign;
+            if (rng != null)
+                sign = rng.Next(0, 2) == 0 ? 1 : -1;
+            else
+                sign = alternateLeftRightTurns ? (leg % 2 == 0 ? 1 : -1) : 1;
+
+            float sweepDeg = arcSweepDegrees + (rng != null ? (float)(rng.NextDouble() * 2.0 - 1.0) * arcSweepDegreesJitter : 0f);
+            sweepDeg = Mathf.Clamp(sweepDeg, 28f, 125f);
+            float sweepRad = sweepDeg * Mathf.Deg2Rad;
+
+            float radius = Mathf.Max(28f, arcRadius + (rng != null ? (float)(rng.NextDouble() * 2.0 - 1.0) * arcRadiusJitter : 0f));
+            float drop = Mathf.Max(4f, verticalDropPerArc + (rng != null ? (float)(rng.NextDouble() * 2.0 - 1.0) * verticalDropPerArcJitter : 0f));
+
+            int arcSeg = Mathf.Clamp(arcSegments + (rng != null ? rng.Next(-4, 5) : 0), 8, 48);
+
+            float legLen = legStraightLength + (rng != null ? (float)(rng.NextDouble() * 2.0 - 1.0) * legStraightLengthJitter : 0f);
+            legLen = Mathf.Max(22f, legLen);
+            int legSeg = Mathf.Clamp(Mathf.RoundToInt(legStraightSegments * (legLen / Mathf.Max(1f, legStraightLength))), 6, 44);
+
+            CurvedIceTrackPath.AppendArc(ref pos, ref fwd, radius, sweepRad, drop, sign, arcSeg, mids, rights);
+            CurvedIceTrackPath.AppendStraight(ref pos, ref fwd, legLen, legSeg, mids, rights);
         }
 
         int rows = mids.Count;
@@ -163,71 +196,6 @@ public class CurvedIceTrack : MonoBehaviour
             BuildSafetyNetCollider();
 
         transform.localRotation = Quaternion.Euler(0f, trackYawDegrees, 0f);
-    }
-
-    static void AppendStraight(ref Vector3 pos, ref Vector3 fwd, float length, int nSeg, List<Vector3> mids, List<Vector3> rights, float totalVerticalDelta = 0f)
-    {
-        nSeg = Mathf.Max(1, nSeg);
-        float step = length / nSeg;
-        float yStep = totalVerticalDelta / nSeg;
-        Vector3 f = new Vector3(fwd.x, 0f, fwd.z).normalized;
-        if (f.sqrMagnitude < 1e-6f)
-            f = Vector3.right;
-        fwd = f;
-
-        for (int i = 0; i <= nSeg; i++)
-        {
-            mids.Add(pos);
-            rights.Add(Vector3.Cross(Vector3.up, fwd).normalized);
-            if (i < nSeg)
-            {
-                pos += fwd * step;
-                pos.y += yStep;
-            }
-        }
-    }
-
-    static void AppendArc(ref Vector3 pos, ref Vector3 fwd, float R, float sweepRad, float dropTotal, int turnSign, int nSeg, List<Vector3> mids, List<Vector3> rights)
-    {
-        nSeg = Mathf.Max(6, nSeg);
-        Vector3 f = new Vector3(fwd.x, 0f, fwd.z).normalized;
-        if (f.sqrMagnitude < 1e-6f)
-            f = Vector3.right;
-
-        Vector3 fwd0 = f;
-        Vector3 rW0 = Vector3.Cross(Vector3.up, fwd0).normalized;
-        Vector3 turnDir0 = (-rW0) * Mathf.Sign(turnSign);
-        float dropPerRad = sweepRad > 1e-4f ? dropTotal / sweepRad : 0f;
-
-        Vector3 junction = pos;
-
-        for (int j = 0; j <= nSeg; j++)
-        {
-            float ang = j / (float)nSeg * sweepRad;
-            float sin = Mathf.Sin(ang);
-            float cos = Mathf.Cos(ang);
-            Vector3 p = junction + fwd0 * (R * sin) + turnDir0 * (R * (1f - cos)) + Vector3.up * (-dropPerRad * ang);
-
-            if (j == 0 && mids.Count > 0 && (p - mids[mids.Count - 1]).sqrMagnitude < 0.0004f)
-                continue;
-
-            mids.Add(p);
-
-            Vector3 tanH = fwd0 * (R * cos) + turnDir0 * (R * sin);
-            tanH = new Vector3(tanH.x, 0f, tanH.z);
-            if (tanH.sqrMagnitude < 1e-8f)
-                tanH = fwd0;
-            tanH.Normalize();
-            rights.Add(Vector3.Cross(Vector3.up, tanH).normalized);
-        }
-
-        float cs = Mathf.Cos(sweepRad);
-        float sn = Mathf.Sin(sweepRad);
-        Vector3 tanEnd = fwd0 * (R * cs) + turnDir0 * (R * sn);
-        tanEnd = new Vector3(tanEnd.x, 0f, tanEnd.z);
-        fwd = tanEnd.sqrMagnitude > 1e-8f ? tanEnd.normalized : fwd0;
-
-        pos = junction + fwd0 * (R * sn) + turnDir0 * (R * (1f - cs)) + Vector3.up * (-dropPerRad * sweepRad);
     }
 
     void EnsureWallParents()

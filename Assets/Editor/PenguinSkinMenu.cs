@@ -8,7 +8,7 @@ using UnityEngine;
 public static class PenguinSkinMenu
 {
     const string PlayerName = "pinguin-black";
-    const string ColorCycleScriptPath = "Assets/Scripts/PenguinColorCycle.cs";
+    const string ColorCycleScriptPath = "Assets/Scripts/Penguin/PenguinColorCycle.cs";
 
     static readonly string[] FbxPathsInOrder =
     {
@@ -19,20 +19,20 @@ public static class PenguinSkinMenu
         "Assets/Models/penguin-green.fbx"
     };
 
-    [MenuItem("Slide and Strike/Assigner skins pingouin (FBX)")]
+    [MenuItem("Slide and Strike/Skins pingouin (FBX)")]
     public static void AssignSkinsFromFbx()
     {
         var go = GameObject.Find(PlayerName);
         if (go == null)
         {
-            EditorUtility.DisplayDialog("Introuvable", "Aucun GameObject nommé « " + PlayerName + " » dans la scène ouverte.", "OK");
+            EditorUtility.DisplayDialog("Skins", "Pas d’objet « " + PlayerName + " » dans cette scène.", "OK");
             return;
         }
 
         var ms = AssetDatabase.LoadAssetAtPath<MonoScript>(ColorCycleScriptPath);
         if (ms == null || ms.GetClass() == null)
         {
-            EditorUtility.DisplayDialog("Erreur", "Script introuvable : " + ColorCycleScriptPath, "OK");
+            EditorUtility.DisplayDialog("Skins", "Script manquant : " + ColorCycleScriptPath, "OK");
             return;
         }
 
@@ -47,7 +47,7 @@ public static class PenguinSkinMenu
             string abs = System.IO.Path.Combine(Application.dataPath, path.Substring(7));
             if (!System.IO.File.Exists(abs))
             {
-                Debug.LogWarning("[PenguinSkinMenu] Fichier manquant : " + path);
+                Debug.LogWarning("FBX absent : " + path);
                 built.Add((null, System.Array.Empty<Material>()));
                 continue;
             }
@@ -61,7 +61,7 @@ public static class PenguinSkinMenu
 
             if (!TryGetMeshAndMaterialsInRendererOrder(root, out Mesh mesh, out Material[] mats))
             {
-                Debug.LogWarning("[PenguinSkinMenu] Pas de mesh/renderer sur : " + path);
+                Debug.LogWarning("Pas de mesh sur : " + path);
                 built.Add((null, System.Array.Empty<Material>()));
                 continue;
             }
@@ -106,8 +106,7 @@ public static class PenguinSkinMenu
         EditorUtility.SetDirty(cycle);
         EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
         AssetDatabase.SaveAssets();
-        EditorUtility.DisplayDialog("Skins pingouin",
-            "5 variantes assignées (ordre des matériaux = ordre des sous-maillages du modèle). Enregistrez la scène (Ctrl+S).", "OK");
+        EditorUtility.DisplayDialog("Skins", "C’est bon. Sauve la scène si tu veux garder ça.", "OK");
     }
 
     static bool TryGetMeshAndMaterialsInRendererOrder(GameObject root, out Mesh mesh, out Material[] materials)
