@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 [RequireComponent(typeof(MeshFilter))]
 [RequireComponent(typeof(MeshRenderer))]
@@ -10,6 +13,7 @@ using UnityEngine;
 public class CurvedIceTrack : MonoBehaviour
 {
     static CurvedIceTrack _activeTrack;
+    const string LogoResourcePath = "UI/slide-and-strike-logo";
 
     [SerializeField] float firstStraightLength = 78f;
     [SerializeField] [Min(4)] int firstStraightSegments = 36;
@@ -34,15 +38,17 @@ public class CurvedIceTrack : MonoBehaviour
     [SerializeField] float verticalDropPerArcJitter = 11f;
     [SerializeField] float firstStraightLengthJitter = 24f;
 
-    [SerializeField] float trackWidth = 15f;
-    [SerializeField] [Min(1)] int widthSegments = 4;
+    [SerializeField] float trackWidth = 50f;
+    [SerializeField] [Min(1)] int widthSegments = 64;
+    [SerializeField] bool usePoolSlideShape = true;
+    [SerializeField] float poolSlideSideHeight = 25f;
     [SerializeField] bool randomizeTextureUvs = true;
     [SerializeField] float textureUvAlongScale = 0.026f;
     [SerializeField] float textureUvAcrossScale = 1.05f;
     [SerializeField] Vector2 textureUvSizeRandom = new Vector2(0.35f, 2.2f);
     [SerializeField] float textureUvPlacementJitter = 0.9f;
 
-    [SerializeField] float wallHeight = 4.5f;
+    [SerializeField] float wallHeight = 16f;
     [SerializeField] float wallThickness = 2.8f;
     [SerializeField] [Min(0f)] float wallInsetFromTrackEdge = 0f;
     [SerializeField] [Min(0.25f)] float wallMinOutwardDepth = 1.8f;
@@ -71,7 +77,7 @@ public class CurvedIceTrack : MonoBehaviour
     [SerializeField] bool buildFans = true;
     [SerializeField] [Min(0)] int fanCount = 14;
     [SerializeField] string fanResourcePath = "Fans/fan_blade";
-    [SerializeField] float fanWindAcceleration = 24f;
+    [SerializeField] float fanWindAcceleration = 42f;
     [SerializeField] float fanWindLength = 14f;
     [SerializeField] float fanScale = 1.5f;
     [SerializeField] Vector3 fanVisualEulerOffset = new Vector3(270f, 0f, 0f);
@@ -90,6 +96,9 @@ public class CurvedIceTrack : MonoBehaviour
     Transform _fansRoot;
     List<Vector3> _lastMids;
     List<Vector3> _lastRights;
+#if UNITY_EDITOR
+    bool _editorRebuildQueued;
+#endif
 
     void Awake()
     {
@@ -99,14 +108,18 @@ public class CurvedIceTrack : MonoBehaviour
 
     void OnEnable()
     {
+#if UNITY_EDITOR
         if (!Application.isPlaying && generateOnAwake)
-            RebuildMesh();
+            QueueEditorRebuild();
+#endif
     }
 
     void OnValidate()
     {
+#if UNITY_EDITOR
         if (!Application.isPlaying && generateOnAwake && isActiveAndEnabled)
-            RebuildMesh();
+            QueueEditorRebuild();
+#endif
     }
 
     void OnDestroy()
@@ -118,7 +131,32 @@ public class CurvedIceTrack : MonoBehaviour
             else
                 DestroyImmediate(_trackMesh);
         }
+#if UNITY_EDITOR
+        EditorApplication.delayCall -= RunQueuedEditorRebuild;
+#endif
     }
+
+#if UNITY_EDITOR
+    void QueueEditorRebuild()
+    {
+        if (_editorRebuildQueued)
+            return;
+
+        _editorRebuildQueued = true;
+        EditorApplication.delayCall += RunQueuedEditorRebuild;
+    }
+
+    void RunQueuedEditorRebuild()
+    {
+        EditorApplication.delayCall -= RunQueuedEditorRebuild;
+        _editorRebuildQueued = false;
+
+        if (this == null || Application.isPlaying || !generateOnAwake || !isActiveAndEnabled)
+            return;
+
+        RebuildMesh();
+    }
+#endif
 
     [ContextMenu("Rebuild mesh")]
     public void RebuildMesh()
@@ -194,32 +232,27 @@ public class CurvedIceTrack : MonoBehaviour
         for (int i = 0; i < rows; i++)
         {
             Vector3 rW = rights[i];
+            Vector3 baseNormal = RowBaseNormal(mids, rights, i, fwd);
             for (int w = 0; w <= widthSegments; w++)
             {
                 float u = (w / (float)widthSegments - 0.5f) * trackWidth;
                 float width01 = w / (float)widthSegments;
                 int idx = i * vx + w;
-                verts[idx] = mids[i] + rW * u;
+                verts[idx] = mids[i] + TrackCrossSectionOffset(u, rW, baseNormal);
                 uvs[idx] = new Vector2(uvAlong[i], (width01 - 0.5f) * uvSideScale[i] + uvSideOffset[i]);
             }
         }
 
         for (int i = 0; i < rows; i++)
         {
-            Vector3 tPrev = i > 0 ? (mids[i] - mids[i - 1]) : (mids[i + 1] - mids[i]);
-            Vector3 tNext = i < rows - 1 ? (mids[i + 1] - mids[i]) : (mids[i] - mids[i - 1]);
-            Vector3 along = (tPrev + tNext) * 0.5f;
-            if (along.sqrMagnitude < 1e-8f)
-                along = fwd;
-            along.Normalize();
-
             Vector3 r = rights[i];
-            Vector3 n = Vector3.Cross(along, r).normalized;
-            if (n.y < 0.12f)
-                n = Vector3.Cross(r, along).normalized;
+            Vector3 n = RowBaseNormal(mids, rights, i, fwd);
 
             for (int w = 0; w <= widthSegments; w++)
-                norms[i * vx + w] = n;
+            {
+                float u = (w / (float)widthSegments - 0.5f) * trackWidth;
+                norms[i * vx + w] = TrackCrossSectionNormal(u, r, n);
+            }
         }
 
         int quadCount = (rows - 1) * widthSegments;
@@ -390,6 +423,60 @@ public class CurvedIceTrack : MonoBehaviour
         }
     }
 
+    float TrackCrossSectionHeight(float lateral)
+    {
+        if (!usePoolSlideShape)
+            return 0f;
+
+        float radius = Mathf.Max(0.01f, poolSlideSideHeight);
+        float x = Mathf.Clamp(lateral, -radius * 0.96f, radius * 0.96f);
+        return radius - Mathf.Sqrt(Mathf.Max(0f, radius * radius - x * x));
+    }
+
+    Vector3 TrackCrossSectionOffset(float lateral, Vector3 right, Vector3 baseNormal)
+    {
+        if (!usePoolSlideShape)
+            return right * lateral;
+
+        float half = Mathf.Max(0.01f, trackWidth * 0.5f);
+        float angle = Mathf.Clamp(lateral / half, -1f, 1f) * Mathf.PI;
+        return right * (Mathf.Sin(angle) * poolSlideSideHeight) +
+               baseNormal * (poolSlideSideHeight * (1f - Mathf.Cos(angle)));
+    }
+
+    Vector3 TrackCrossSectionNormal(float lateral, Vector3 right, Vector3 baseNormal)
+    {
+        if (!usePoolSlideShape)
+            return baseNormal;
+
+        float half = Mathf.Max(0.01f, trackWidth * 0.5f);
+        float angle = Mathf.Clamp(lateral / half, -1f, 1f) * Mathf.PI;
+        return (baseNormal * Mathf.Cos(angle) - right * Mathf.Sin(angle)).normalized;
+    }
+
+    Vector3 TrackSurfacePoint(Vector3 mid, Vector3 right, float lateral)
+    {
+        float radius = Mathf.Max(0.01f, poolSlideSideHeight);
+        float x = usePoolSlideShape ? Mathf.Clamp(lateral, -radius * 0.96f, radius * 0.96f) : lateral;
+        return mid + right * x + Vector3.up * TrackCrossSectionHeight(x);
+    }
+
+    Vector3 RowBaseNormal(List<Vector3> mids, List<Vector3> rights, int row, Vector3 fallbackForward)
+    {
+        Vector3 tPrev = row > 0 ? mids[row] - mids[row - 1] : mids[row + 1] - mids[row];
+        Vector3 tNext = row < mids.Count - 1 ? mids[row + 1] - mids[row] : mids[row] - mids[row - 1];
+        Vector3 along = (tPrev + tNext) * 0.5f;
+        if (along.sqrMagnitude < 1e-8f)
+            along = fallbackForward;
+        along.Normalize();
+
+        Vector3 r = rights[row];
+        Vector3 n = Vector3.Cross(along, r).normalized;
+        if (n.y < 0.12f)
+            n = Vector3.Cross(r, along).normalized;
+        return n;
+    }
+
     static float NextRange(System.Random rng, float min, float max)
     {
         if (max < min)
@@ -486,14 +573,21 @@ public class CurvedIceTrack : MonoBehaviour
             return;
 
         float half = trackWidth * 0.5f;
+        if (usePoolSlideShape)
+        {
+            if (buildEndWallCaps)
+                BuildTransverseEndCaps(mids, rights, half);
+            return;
+        }
+
         var leftPts = new Vector3[rows];
         var rightPts = new Vector3[rows];
         var rArr = new Vector3[rows];
         for (int i = 0; i < rows; i++)
         {
             rArr[i] = rights[i];
-            leftPts[i] = mids[i] + rights[i] * (-half);
-            rightPts[i] = mids[i] + rights[i] * half;
+            leftPts[i] = TrackSurfacePoint(mids[i], rights[i], -half);
+            rightPts[i] = TrackSurfacePoint(mids[i], rights[i], half);
         }
 
         BuildWallRibbon(_wallLeft, leftPts, rArr, rows, true);
@@ -512,14 +606,25 @@ public class CurvedIceTrack : MonoBehaviour
         float capInset = Mathf.Min(wallInsetFromTrackEdge, Mathf.Max(0f, half - 1.2f));
         Vector3 r0 = rights[0];
         Vector3 r1 = rights[last];
-        Vector3 left0 = mids[0] + r0 * (-half + capInset);
-        Vector3 right0 = mids[0] + r0 * (half - capInset);
+        if (usePoolSlideShape)
+        {
+            BuildCircleCapMesh(_wallStart, mids[0], r0, RowBaseNormal(mids, rights, 0, mids[1] - mids[0]),
+                (mids[1] - mids[0]).normalized, false);
+            BuildCircleCapMesh(_wallEnd, mids[last], r1, RowBaseNormal(mids, rights, last, mids[last] - mids[last - 1]),
+                (mids[last - 1] - mids[last]).normalized, true);
+            EnsureEndWallFinish();
+            return;
+        }
 
-        Vector3 left1 = mids[last] + r1 * (-half + capInset);
-        Vector3 right1 = mids[last] + r1 * (half - capInset);
+        Vector3 left0 = TrackSurfacePoint(mids[0], r0, -half + capInset);
+        Vector3 right0 = TrackSurfacePoint(mids[0], r0, half - capInset);
 
-        BuildCapMesh(_wallStart, left0, right0);
-        BuildCapMesh(_wallEnd, left1, right1);
+        Vector3 left1 = TrackSurfacePoint(mids[last], r1, -half + capInset);
+        Vector3 right1 = TrackSurfacePoint(mids[last], r1, half - capInset);
+
+        BuildCapMesh(_wallStart, left0, right0, false, Vector3.zero);
+        Vector3 endInsideDirection = (mids[Mathf.Max(0, last - 1)] - mids[last]).normalized;
+        BuildCapMesh(_wallEnd, left1, right1, true, endInsideDirection);
         EnsureEndWallFinish();
     }
 
@@ -548,11 +653,12 @@ public class CurvedIceTrack : MonoBehaviour
         go.transform.SetParent(transform, false);
         go.layer = gameObject.layer;
         go.AddComponent<MeshFilter>();
+        go.AddComponent<MeshRenderer>();
         go.AddComponent<MeshCollider>();
         t = go.transform;
     }
 
-    void BuildCapMesh(Transform parent, Vector3 left, Vector3 right)
+    void BuildCapMesh(Transform parent, Vector3 left, Vector3 right, bool addLogo, Vector3 logoOffsetDirection)
     {
         Vector3 lowL = left - Vector3.up * wallExtendBelow;
         Vector3 lowR = right - Vector3.up * wallExtendBelow;
@@ -577,6 +683,11 @@ public class CurvedIceTrack : MonoBehaviour
             mf = parent.gameObject.AddComponent<MeshFilter>();
         mf.sharedMesh = mesh;
 
+        var mr = parent.GetComponent<MeshRenderer>();
+        if (mr == null)
+            mr = parent.gameObject.AddComponent<MeshRenderer>();
+        mr.sharedMaterial = BuildEndWallMaterial();
+
         var mc = parent.GetComponent<MeshCollider>();
         if (mc == null)
             mc = parent.gameObject.AddComponent<MeshCollider>();
@@ -586,6 +697,148 @@ public class CurvedIceTrack : MonoBehaviour
         var trackPhys = GetComponent<MeshCollider>();
         if (trackPhys != null && trackPhys.sharedMaterial != null)
             mc.sharedMaterial = trackPhys.sharedMaterial;
+
+        if (addLogo)
+            BuildEndWallLogo(parent, (left + right) * 0.5f + Vector3.up * (wallHeight * 0.45f),
+                (right - left).normalized, Vector3.up, logoOffsetDirection.normalized,
+                Mathf.Max(3f, Vector3.Distance(left, right) * 0.5f));
+    }
+
+    void BuildCircleCapMesh(Transform parent, Vector3 bottom, Vector3 right, Vector3 baseNormal, Vector3 logoOffsetDirection,
+        bool addLogo)
+    {
+        int segments = Mathf.Max(32, widthSegments);
+        float radius = Mathf.Max(0.01f, poolSlideSideHeight);
+        Vector3 center = bottom + baseNormal.normalized * radius;
+
+        var v = new Vector3[segments + 1];
+        v[0] = center;
+        for (int i = 0; i < segments; i++)
+        {
+            float a = i / (float)segments * Mathf.PI * 2f;
+            v[i + 1] = center + right.normalized * (Mathf.Sin(a) * radius) - baseNormal.normalized * (Mathf.Cos(a) * radius);
+        }
+
+        var tris = new int[segments * 6];
+        int ti = 0;
+        for (int i = 0; i < segments; i++)
+        {
+            int a = 0;
+            int b = i + 1;
+            int c = i == segments - 1 ? 1 : i + 2;
+            tris[ti++] = a;
+            tris[ti++] = b;
+            tris[ti++] = c;
+            tris[ti++] = a;
+            tris[ti++] = c;
+            tris[ti++] = b;
+        }
+
+        var mesh = new Mesh { name = parent.name };
+        mesh.vertices = v;
+        mesh.triangles = tris;
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+
+        var mf = parent.GetComponent<MeshFilter>();
+        if (mf == null)
+            mf = parent.gameObject.AddComponent<MeshFilter>();
+        mf.sharedMesh = mesh;
+
+        var mr = parent.GetComponent<MeshRenderer>();
+        if (mr == null)
+            mr = parent.gameObject.AddComponent<MeshRenderer>();
+        mr.sharedMaterial = BuildEndWallMaterial();
+
+        var mc = parent.GetComponent<MeshCollider>();
+        if (mc == null)
+            mc = parent.gameObject.AddComponent<MeshCollider>();
+        mc.sharedMesh = null;
+        mc.convex = false;
+        mc.sharedMesh = mesh;
+        var trackPhys = GetComponent<MeshCollider>();
+        if (trackPhys != null && trackPhys.sharedMaterial != null)
+            mc.sharedMaterial = trackPhys.sharedMaterial;
+
+        if (addLogo)
+            BuildEndWallLogo(parent, center, right.normalized, baseNormal.normalized, logoOffsetDirection.normalized, radius);
+    }
+
+    Material BuildEndWallMaterial()
+    {
+        var shader = Shader.Find("Universal Render Pipeline/Unlit");
+        if (shader == null)
+            shader = Shader.Find("Unlit/Color");
+        if (shader == null)
+            shader = Shader.Find("Standard");
+
+        var m = new Material(shader);
+        m.color = Color.black;
+        if (m.HasProperty("_BaseColor"))
+            m.SetColor("_BaseColor", Color.black);
+        return m;
+    }
+
+    void BuildEndWallLogo(Transform parent, Vector3 center, Vector3 right, Vector3 up, Vector3 offsetDirection, float radius)
+    {
+        var oldLogo = parent.Find("EndWallLogo");
+        if (oldLogo != null)
+        {
+            if (Application.isPlaying)
+                Destroy(oldLogo.gameObject);
+            else
+                DestroyImmediate(oldLogo.gameObject);
+        }
+
+        var texture = Resources.Load<Texture2D>(LogoResourcePath);
+        if (texture == null)
+            return;
+
+        var logo = new GameObject("EndWallLogo");
+        logo.transform.SetParent(parent, false);
+        logo.layer = parent.gameObject.layer;
+
+        float width = radius * 1.35f;
+        float height = width * texture.height / Mathf.Max(1f, texture.width);
+        height = Mathf.Min(height, radius * 0.9f);
+        Vector3 c = center + up * (radius * 0.15f) + offsetDirection * 0.18f;
+        Vector3 hw = right.normalized * (width * 0.5f);
+        Vector3 hh = up.normalized * (height * 0.5f);
+
+        var mesh = new Mesh { name = "EndWallLogo" };
+        mesh.vertices = new[] { c - hw - hh, c + hw - hh, c + hw + hh, c - hw + hh };
+        mesh.triangles = new[] { 0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2 };
+        mesh.uv = new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up };
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+
+        logo.AddComponent<MeshFilter>().sharedMesh = mesh;
+        logo.AddComponent<MeshRenderer>().sharedMaterial = BuildLogoMaterial(texture);
+    }
+
+    Material BuildLogoMaterial(Texture2D texture)
+    {
+        var shader = Shader.Find("Universal Render Pipeline/Unlit");
+        if (shader == null)
+            shader = Shader.Find("Unlit/Transparent");
+        if (shader == null)
+            shader = Shader.Find("Standard");
+
+        var m = new Material(shader);
+        m.mainTexture = texture;
+        m.color = Color.white;
+        if (m.HasProperty("_BaseMap"))
+            m.SetTexture("_BaseMap", texture);
+        if (m.HasProperty("_BaseColor"))
+            m.SetColor("_BaseColor", Color.white);
+        if (m.HasProperty("_Surface"))
+            m.SetFloat("_Surface", 1f);
+        m.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        m.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        m.SetInt("_ZWrite", 0);
+        m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        m.renderQueue = 3000;
+        return m;
     }
 
     void BuildSafetyNetCollider()
@@ -642,8 +895,8 @@ public class CurvedIceTrack : MonoBehaviour
         {
             int row = rng.Next(min, max);
             int skin = 1 + rng.Next(0, 5);
-            float lateral = ((float)rng.NextDouble() * 2f - 1f) * trackWidth * 0.24f;
-            Vector3 p = mids[row] + rights[row] * lateral + Vector3.up * colorCollectibleHeight;
+            float lateral = ((float)rng.NextDouble() * 2f - 1f) * trackWidth * 0.18f;
+            Vector3 p = TrackSurfacePoint(mids[row], rights[row], lateral) + Vector3.up * colorCollectibleHeight;
 
             var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             go.name = "ColorCollectible_" + skin;
@@ -687,8 +940,8 @@ public class CurvedIceTrack : MonoBehaviour
             int rowIndex = Mathf.RoundToInt(Mathf.Lerp(0, flatRows.Count - 1, t));
             rowIndex = Mathf.Clamp(rowIndex + rng.Next(-2, 3), 0, flatRows.Count - 1);
             int row = flatRows[rowIndex];
-            float lateral = ((float)rng.NextDouble() * 2f - 1f) * trackWidth * 0.34f;
-            Vector3 p = mids[row] + rights[row] * lateral;
+            float lateral = ((float)rng.NextDouble() * 2f - 1f) * trackWidth * 0.12f;
+            Vector3 p = TrackSurfacePoint(mids[row], rights[row], lateral);
             float yaw = (float)rng.NextDouble() * 360f;
             CreateBottlePin(prefab, p, Quaternion.Euler(0f, yaw, 0f));
         }
@@ -724,7 +977,7 @@ public class CurvedIceTrack : MonoBehaviour
             for (int col = 0; col < count; col++)
             {
                 float lateral = (col - row * 0.5f) * endRackPinSpacing;
-                Vector3 p = frontPin + forward * (row * endRackPinSpacing) + right * lateral;
+                Vector3 p = TrackSurfacePoint(frontPin + forward * (row * endRackPinSpacing), right, lateral);
                 CreateBottlePin(prefab, p, Quaternion.LookRotation(forward, Vector3.up));
                 created++;
                 if (created >= 10)
@@ -754,7 +1007,8 @@ public class CurvedIceTrack : MonoBehaviour
             int side = rng.Next(0, 2) == 0 ? -1 : 1;
             Vector3 right = rights[row].normalized;
             Vector3 forward = RowForward(mids, row);
-            Vector3 p = mids[row] + right * (side * trackWidth * 0.58f) + Vector3.up * 0.5f;
+            float lateral = side * trackWidth * 0.24f;
+            Vector3 p = TrackSurfacePoint(mids[row], right, lateral) + Vector3.up * 1.2f;
             Vector3 windDir = -right * side;
 
             var go = new GameObject("FanWind");
@@ -781,8 +1035,8 @@ public class CurvedIceTrack : MonoBehaviour
 
             var box = go.AddComponent<BoxCollider>();
             box.isTrigger = true;
-            box.center = new Vector3(-side * trackWidth * 0.42f, 2.2f, 0f);
-            box.size = new Vector3(trackWidth * 0.84f, 5f, fanWindLength);
+            box.center = new Vector3(-side * trackWidth * 0.18f, 2.2f, 0f);
+            box.size = new Vector3(trackWidth * 0.42f, 6f, fanWindLength);
 
             var wind = go.AddComponent<FanWindZone>();
             wind.Configure(transform.TransformDirection(windDir), fanWindAcceleration, Mathf.Max(2f, fanWindLength * 0.22f));
@@ -1048,10 +1302,12 @@ public class CurvedIceTrack : MonoBehaviour
         var rb = go.GetComponent<Rigidbody>();
         if (rb == null)
             rb = go.AddComponent<Rigidbody>();
-        rb.mass = 0.7f;
+        rb.mass = 0.28f;
         rb.linearDamping = 0.08f;
         rb.angularDamping = 0.05f;
-        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+        rb.useGravity = false;
+        rb.isKinematic = true;
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
 
         if (go.GetComponent<Collider>() == null)
             AddBoundsCollider(go);

@@ -16,6 +16,7 @@ public class KnockableBottle : MonoBehaviour
     void Awake()
     {
         _rb = GetComponent<Rigidbody>();
+        KeepStanding();
         _scoreReadyAt = Time.time + 0.5f;
     }
 
@@ -35,14 +36,13 @@ public class KnockableBottle : MonoBehaviour
             return;
 
         float impact = collision.relativeVelocity.magnitude;
-        bool hitByPenguin = TryGetPenguin(collision.collider, out PenguinPowerUpController powerUps);
+        bool hitByPenguin = TryGetPenguin(collision.collider, out _);
         if (!hitByPenguin)
         {
             var otherBottle = collision.collider.GetComponentInParent<KnockableBottle>();
             if (otherBottle != null && otherBottle._scored && impact >= chainScoreVelocityThreshold)
             {
-                _chainEnabled = true;
-                Score();
+                HitFrom(otherBottle.transform.position, 1f);
             }
             return;
         }
@@ -50,14 +50,33 @@ public class KnockableBottle : MonoBehaviour
         if (impact < scoreVelocityThreshold)
             return;
 
-        Score();
-        _chainEnabled = true;
-
         HitFrom(collision.transform.position, 1f);
+    }
+
+    void OnTriggerEnter(Collider other)
+    {
+        if (_scored || Time.time < _scoreReadyAt)
+            return;
+
+        if (TryGetPenguin(other, out _))
+        {
+            var rb = other.GetComponentInParent<Rigidbody>();
+            if (rb != null && rb.linearVelocity.magnitude < scoreVelocityThreshold)
+                return;
+
+            HitFrom(other.transform.position, 1f);
+            IgnoreCollisionsWithSource(other);
+            return;
+        }
+
+        var otherBottle = other.GetComponentInParent<KnockableBottle>();
+        if (otherBottle != null && otherBottle._scored)
+            HitFrom(otherBottle.transform.position, 1f);
     }
 
     public void HitFrom(Vector3 sourcePosition, float multiplier)
     {
+        ActivatePhysics();
         Score();
         _chainEnabled = true;
         if (_rb == null)
@@ -71,6 +90,54 @@ public class KnockableBottle : MonoBehaviour
 
         _rb.AddForce((dir * hitImpulse + Vector3.up * upwardImpulse) * multiplier, ForceMode.Impulse);
         _rb.AddTorque(Random.insideUnitSphere * hitImpulse * multiplier, ForceMode.Impulse);
+    }
+
+    void KeepStanding()
+    {
+        if (_rb == null)
+            return;
+
+        _rb.useGravity = false;
+        _rb.isKinematic = true;
+        SetCollidersTrigger(true);
+    }
+
+    void ActivatePhysics()
+    {
+        if (_rb == null)
+            return;
+
+        if (!_rb.isKinematic && _rb.useGravity)
+            return;
+
+        _rb.isKinematic = false;
+        _rb.useGravity = true;
+        _rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+        SetCollidersTrigger(false);
+        _rb.WakeUp();
+    }
+
+    void SetCollidersTrigger(bool isTrigger)
+    {
+        foreach (var col in GetComponentsInChildren<Collider>())
+            col.isTrigger = isTrigger;
+    }
+
+    void IgnoreCollisionsWithSource(Collider source)
+    {
+        var sourceRoot = source.attachedRigidbody != null ? source.attachedRigidbody.transform : source.transform.root;
+        var bottleColliders = GetComponentsInChildren<Collider>();
+        var sourceColliders = sourceRoot.GetComponentsInChildren<Collider>();
+        foreach (var bottleCollider in bottleColliders)
+        {
+            if (bottleCollider == null)
+                continue;
+            foreach (var sourceCollider in sourceColliders)
+            {
+                if (sourceCollider != null)
+                    Physics.IgnoreCollision(bottleCollider, sourceCollider, true);
+            }
+        }
     }
 
     void Score()

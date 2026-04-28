@@ -24,9 +24,19 @@ public class PenguinSlideDrive : MonoBehaviour
     [SerializeField] float stickSpring = 0f;
     [SerializeField] float maxStickAcceleration = 0f;
     [SerializeField] float gapIgnoreBelow = 0.05f;
+    [SerializeField] float groundedGapForJump = 0.38f;
+    [SerializeField] float jumpVelocityChange = 4.8f;
+    [SerializeField] float diveForwardVelocityChange = 3.2f;
+    [SerializeField] float diveDownVelocityChange = 7f;
+    [SerializeField] float jumpGroundClampGrace = 0.18f;
 
     Rigidbody _rb;
     CapsuleCollider _cap;
+    bool _spacePressed;
+    bool _grounded;
+    bool _diveUsed;
+    float _skipGroundClampUntil;
+    Vector3 _lastGroundNormal = Vector3.up;
 
     public float PowerUpAccelerationMultiplier { get; set; } = 1f;
     public float InputSign { get; set; } = 1f;
@@ -35,6 +45,13 @@ public class PenguinSlideDrive : MonoBehaviour
     {
         _rb = GetComponent<Rigidbody>();
         _cap = GetComponent<CapsuleCollider>();
+    }
+
+    void Update()
+    {
+        var k = Keyboard.current;
+        if (k != null && k.spaceKey.wasPressedThisFrame)
+            _spacePressed = true;
     }
 
     IEnumerator Start()
@@ -66,9 +83,18 @@ public class PenguinSlideDrive : MonoBehaviour
     {
         Vector3 origin = transform.position + Vector3.up * raycastOriginHeight;
         if (!TryAverageGround(origin, out RaycastHitData g))
+        {
+            _grounded = false;
+            HandleSpaceAction(Vector3.up, false);
             return;
+        }
 
         Vector3 normal = g.normal;
+        _lastGroundNormal = normal;
+        _grounded = IsGrounded(g);
+        if (_grounded && Time.time >= _skipGroundClampUntil)
+            _diveUsed = false;
+        bool jumpedOrDived = HandleSpaceAction(normal, _grounded);
         Vector3 grav = Physics.gravity.sqrMagnitude > 1e-6f ? Physics.gravity : new Vector3(0f, -9.81f, 0f);
         Vector3 gPlane = Vector3.ProjectOnPlane(grav, normal);
 
@@ -96,9 +122,12 @@ public class PenguinSlideDrive : MonoBehaviour
 
         ApplySteerAssist(normal, kmh);
 
-        StickDown(g);
-        KillLiftAlongGroundNormal(normal);
-        CapUpwardSlip(g.avgDistance);
+        if (_grounded && !jumpedOrDived && Time.time >= _skipGroundClampUntil)
+        {
+            StickDown(g);
+            KillLiftAlongGroundNormal(normal);
+            CapUpwardSlip(g.avgDistance);
+        }
     }
 
     struct RaycastHitData
@@ -150,6 +179,63 @@ public class PenguinSlideDrive : MonoBehaviour
         return true;
     }
 
+    bool IsGrounded(RaycastHitData g)
+    {
+        if (_cap == null)
+            return g.avgDistance <= groundedGapForJump + raycastOriginHeight;
+
+        Vector3 bottom = PenguinCapsulePlacement.GetWorldBottom(transform, _cap);
+        float gap = Vector3.Dot(bottom - g.surfacePoint, g.normal);
+        return gap <= groundedGapForJump;
+    }
+
+    bool HandleSpaceAction(Vector3 groundNormal, bool grounded)
+    {
+        if (!_spacePressed)
+            return false;
+
+        _spacePressed = false;
+        if (grounded)
+        {
+            Jump(groundNormal);
+            return true;
+        }
+
+        if (_diveUsed)
+            return false;
+
+        Dive();
+        return true;
+    }
+
+    void Jump(Vector3 groundNormal)
+    {
+        _diveUsed = false;
+        _skipGroundClampUntil = Time.time + jumpGroundClampGrace;
+
+        Vector3 jumpDir = (groundNormal.normalized + Vector3.up * 0.7f).normalized;
+        Vector3 v = _rb.linearVelocity;
+        float outwardSpeed = Vector3.Dot(v, jumpDir);
+        if (outwardSpeed < 0f)
+            v -= jumpDir * outwardSpeed;
+        _rb.linearVelocity = v;
+        _rb.AddForce(jumpDir * jumpVelocityChange, ForceMode.VelocityChange);
+    }
+
+    void Dive()
+    {
+        _diveUsed = true;
+
+        Vector3 forward = Vector3.ProjectOnPlane(transform.forward, _lastGroundNormal);
+        if (forward.sqrMagnitude < 1e-5f)
+            forward = Vector3.ProjectOnPlane(_rb.linearVelocity, Vector3.up);
+        if (forward.sqrMagnitude < 1e-5f)
+            forward = transform.forward;
+        forward.Normalize();
+
+        _rb.AddForce(forward * diveForwardVelocityChange + Vector3.down * diveDownVelocityChange, ForceMode.VelocityChange);
+    }
+
     void StickDown(RaycastHitData g)
     {
         if (_cap == null)
@@ -189,7 +275,7 @@ public class PenguinSlideDrive : MonoBehaviour
             _rb.AddForce(turnForce, ForceMode.Acceleration);
         }
 
-            _rb.AddForce(desiredForward * (steerForwardPullAcceleration * PowerUpAccelerationMultiplier), ForceMode.Acceleration);
+        _rb.AddForce(desiredForward * (steerForwardPullAcceleration * PowerUpAccelerationMultiplier), ForceMode.Acceleration);
     }
 
     void KillLiftAlongGroundNormal(Vector3 groundNormal)

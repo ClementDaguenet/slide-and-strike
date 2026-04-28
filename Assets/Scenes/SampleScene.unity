@@ -650,6 +650,11 @@ MonoBehaviour:
   stickSpring: 0
   maxStickAcceleration: 0
   gapIgnoreBelow: 0.05
+  groundedGapForJump: 0.38
+  jumpVelocityChange: 4.8
+  diveForwardVelocityChange: 3.2
+  diveDownVelocityChange: 7
+  jumpGroundClampGrace: 0.18
 --- !u!114 &2012845610
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -847,14 +852,16 @@ MonoBehaviour:
   arcRadiusJitter: 30
   verticalDropPerArcJitter: 11
   firstStraightLengthJitter: 24
-  trackWidth: 15
-  widthSegments: 4
+  trackWidth: 50
+  widthSegments: 64
+  usePoolSlideShape: 1
+  poolSlideSideHeight: 25
   randomizeTextureUvs: 1
   textureUvAlongScale: 0.026
   textureUvAcrossScale: 1.05
   textureUvSizeRandom: {x: 0.35, y: 2.2}
   textureUvPlacementJitter: 0.9
-  wallHeight: 4.5
+  wallHeight: 16
   wallThickness: 2.8
   wallInsetFromTrackEdge: 0
   wallMinOutwardDepth: 1.8
@@ -886,7 +893,7 @@ MonoBehaviour:
   buildFans: 1
   fanCount: 14
   fanResourcePath: Fans/fan_blade
-  fanWindAcceleration: 24
+  fanWindAcceleration: 42
   fanWindLength: 14
   fanScale: 1.5
   fanVisualEulerOffset: {x: 270, y: 0, z: 0}
