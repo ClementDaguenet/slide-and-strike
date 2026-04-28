@@ -13,13 +13,17 @@ public class PenguinSlideDrive : MonoBehaviour
     [SerializeField] LayerMask groundMask = ~0;
     [SerializeField] float maxKmhForIdleNudge = 0.85f;
     [SerializeField] float idleNudgeAcceleration = 5.5f;
-    [SerializeField] float groundSurfacePadding = -0.22f;
+    [SerializeField] float steerAssistAcceleration = 34f;
+    [SerializeField] float steerVelocityTurnAcceleration = 26f;
+    [SerializeField] float steerForwardPullAcceleration = 4.2f;
+    [SerializeField] float maxKmhForSteerAssist = 120f;
+    [SerializeField] float groundSurfacePadding = 0f;
     [SerializeField] float maxUpwardVelocityWhenNearGround = 2.2f;
     [SerializeField] float groundProximityForClamp = 4.5f;
     [SerializeField] float outwardVelocityDamp = 0.94f;
-    [SerializeField] float stickSpring = 58f;
-    [SerializeField] float maxStickAcceleration = 120f;
-    [SerializeField] float gapIgnoreBelow = 0f;
+    [SerializeField] float stickSpring = 0f;
+    [SerializeField] float maxStickAcceleration = 0f;
+    [SerializeField] float gapIgnoreBelow = 0.05f;
 
     Rigidbody _rb;
     CapsuleCollider _cap;
@@ -87,6 +91,8 @@ public class PenguinSlideDrive : MonoBehaviour
         if (kmh < maxKmhForIdleNudge && ReadIdleForwardInput() && alongSlide.sqrMagnitude > 1e-5f)
             _rb.AddForce(alongSlide * idleNudgeAcceleration, ForceMode.Acceleration);
 
+        ApplySteerAssist(normal, kmh);
+
         StickDown(g);
         KillLiftAlongGroundNormal(normal);
         CapUpwardSlip(g.avgDistance);
@@ -145,7 +151,8 @@ public class PenguinSlideDrive : MonoBehaviour
     {
         if (_cap == null)
             return;
-
+        if (stickSpring <= 0f || maxStickAcceleration <= 0f)
+            return;
         Vector3 bottom = PenguinCapsulePlacement.GetWorldBottom(transform, _cap);
         float gap = Vector3.Dot(bottom - g.surfacePoint, g.normal);
         if (gap <= gapIgnoreBelow)
@@ -153,6 +160,33 @@ public class PenguinSlideDrive : MonoBehaviour
 
         float a = Mathf.Min(gap * stickSpring, maxStickAcceleration);
         _rb.AddForce(-g.normal * a, ForceMode.Acceleration);
+    }
+
+    void ApplySteerAssist(Vector3 groundNormal, float kmh)
+    {
+        if (kmh > maxKmhForSteerAssist)
+            return;
+
+        float steer = PenguinSteer.ReadSteerInput();
+        if (Mathf.Abs(steer) < 0.01f)
+            return;
+
+        Vector3 desiredForward = Vector3.ProjectOnPlane(transform.forward, groundNormal);
+        if (desiredForward.sqrMagnitude < 1e-5f)
+            return;
+        desiredForward.Normalize();
+
+        Vector3 vPlane = Vector3.ProjectOnPlane(_rb.linearVelocity, groundNormal);
+        float speed = vPlane.magnitude;
+        if (speed > 0.2f)
+        {
+            Vector3 desiredVelocity = desiredForward * speed;
+            Vector3 correction = desiredVelocity - vPlane;
+            Vector3 turnForce = Vector3.ClampMagnitude(correction * steerVelocityTurnAcceleration, steerAssistAcceleration);
+            _rb.AddForce(turnForce, ForceMode.Acceleration);
+        }
+
+        _rb.AddForce(desiredForward * steerForwardPullAcceleration, ForceMode.Acceleration);
     }
 
     void KillLiftAlongGroundNormal(Vector3 groundNormal)

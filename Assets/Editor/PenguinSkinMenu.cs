@@ -102,6 +102,9 @@ public static class PenguinSkinMenu
         }
 
         so.FindProperty("startSkinIndex").intValue = 0;
+        var robeSlots = so.FindProperty("robeMaterialSlots");
+        robeSlots.arraySize = 1;
+        robeSlots.GetArrayElementAtIndex(0).intValue = 2;
         so.ApplyModifiedProperties();
         EditorUtility.SetDirty(cycle);
         EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());

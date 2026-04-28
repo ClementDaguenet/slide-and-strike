@@ -4,8 +4,8 @@ public class CameraFollow : MonoBehaviour
 {
     [SerializeField] string targetName = "pinguin-black";
     [SerializeField] float followDistance = 6.2f;
-    [SerializeField] float heightAboveTarget = 2.1f;
-    [SerializeField] float lookAtHeightOnTarget = 0.45f;
+    [SerializeField] float heightAboveTarget = 2.8f;
+    [SerializeField] float lookAtHeightOnTarget = 0.65f;
     [SerializeField] float positionSmoothTime = 0.18f;
     [SerializeField] float rotationSmoothTime = 0.15f;
     [SerializeField] float cameraYawOffsetDegrees = 0f;

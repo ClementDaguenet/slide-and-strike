@@ -5,6 +5,7 @@ using UnityEngine;
 [RequireComponent(typeof(MeshFilter))]
 [RequireComponent(typeof(MeshRenderer))]
 [RequireComponent(typeof(MeshCollider))]
+[ExecuteAlways]
 [DefaultExecutionOrder(-50)]
 public class CurvedIceTrack : MonoBehaviour
 {
@@ -32,16 +33,27 @@ public class CurvedIceTrack : MonoBehaviour
 
     [SerializeField] float trackWidth = 15f;
     [SerializeField] [Min(1)] int widthSegments = 4;
+    [SerializeField] bool randomizeTextureUvs = true;
+    [SerializeField] float textureUvAlongScale = 0.018f;
+    [SerializeField] float textureUvAcrossScale = 1.8f;
+    [SerializeField] Vector2 textureUvSizeRandom = new Vector2(0.55f, 1.55f);
+    [SerializeField] float textureUvPlacementJitter = 0.45f;
 
-    [SerializeField] float wallHeight = 11f;
-    [SerializeField] float wallThickness = 1.65f;
-    [SerializeField] [Min(0f)] float wallInsetFromTrackEdge = 1.1f;
-    [SerializeField] [Min(0.25f)] float wallMinOutwardDepth = 0.52f;
+    [SerializeField] float wallHeight = 4.5f;
+    [SerializeField] float wallThickness = 2.8f;
+    [SerializeField] [Min(0f)] float wallInsetFromTrackEdge = 0f;
+    [SerializeField] [Min(0.25f)] float wallMinOutwardDepth = 1.8f;
     [SerializeField] [Min(0f)] float wallExtendBelow = 24f;
     [SerializeField] bool buildEndWallCaps = true;
     [SerializeField] bool buildSafetyNetCollider = true;
     [SerializeField] float safetyNetPaddingXZ = 95f;
     [SerializeField] [Min(4f)] float safetyNetThickness = 38f;
+    [SerializeField] bool buildColorCollectibles = true;
+    [SerializeField] [Min(0)] int colorCollectibleCount = 32;
+    [SerializeField] float colorCollectibleHeight = 1.05f;
+    [SerializeField] float colorCollectibleRadius = 0.75f;
+    [SerializeField] float colorCollectibleCollectionRadius = 1.25f;
+    [SerializeField] float colorCollectibleDuration = 5f;
 
     [SerializeField] bool generateOnAwake = true;
 
@@ -51,17 +63,35 @@ public class CurvedIceTrack : MonoBehaviour
     Transform _wallStart;
     Transform _wallEnd;
     Transform _safetyNet;
+    Transform _collectiblesRoot;
 
     void Awake()
     {
-        if (generateOnAwake)
+        if (Application.isPlaying && generateOnAwake)
+            RebuildMesh();
+    }
+
+    void OnEnable()
+    {
+        if (!Application.isPlaying && generateOnAwake)
+            RebuildMesh();
+    }
+
+    void OnValidate()
+    {
+        if (!Application.isPlaying && generateOnAwake && isActiveAndEnabled)
             RebuildMesh();
     }
 
     void OnDestroy()
     {
         if (_trackMesh != null)
-            Destroy(_trackMesh);
+        {
+            if (Application.isPlaying)
+                Destroy(_trackMesh);
+            else
+                DestroyImmediate(_trackMesh);
+        }
     }
 
     [ContextMenu("Rebuild mesh")]
@@ -80,9 +110,7 @@ public class CurvedIceTrack : MonoBehaviour
         var mids = new List<Vector3>(512);
         var rights = new List<Vector3>(512);
 
-        int seed = courseRandomSeed != 0
-            ? courseRandomSeed
-            : unchecked((int)(DateTime.UtcNow.Ticks & 0x7FFFFFFF) ^ GetInstanceID());
+        int seed = courseRandomSeed != 0 ? courseRandomSeed : DefaultSeed();
         var rng = randomizeCourse ? new System.Random(seed) : null;
 
         float fsLen = firstStraightLength + (rng != null ? (float)(rng.NextDouble() * 2.0 - 1.0) * firstStraightLengthJitter : 0f);
@@ -127,6 +155,10 @@ public class CurvedIceTrack : MonoBehaviour
         var verts = new Vector3[vx * rows];
         var norms = new Vector3[vx * rows];
         var uvs = new Vector2[vx * rows];
+        var uvAlong = new float[rows];
+        var uvSideOffset = new float[rows];
+        var uvSideScale = new float[rows];
+        BuildTrackUvs(mids, seed, uvAlong, uvSideOffset, uvSideScale);
 
         for (int i = 0; i < rows; i++)
         {
@@ -134,9 +166,10 @@ public class CurvedIceTrack : MonoBehaviour
             for (int w = 0; w <= widthSegments; w++)
             {
                 float u = (w / (float)widthSegments - 0.5f) * trackWidth;
+                float width01 = w / (float)widthSegments;
                 int idx = i * vx + w;
                 verts[idx] = mids[i] + rW * u;
-                uvs[idx] = new Vector2(i * 0.08f, (w / (float)widthSegments) * 3f);
+                uvs[idx] = new Vector2(uvAlong[i], (width01 - 0.5f) * uvSideScale[i] + uvSideOffset[i]);
             }
         }
 
@@ -194,8 +227,67 @@ public class CurvedIceTrack : MonoBehaviour
         BuildEdgeWalls(mids, rights);
         if (buildSafetyNetCollider)
             BuildSafetyNetCollider();
+        if (Application.isPlaying && buildColorCollectibles)
+            BuildColorCollectibles(mids, rights, seed);
 
         transform.localRotation = Quaternion.Euler(0f, trackYawDegrees, 0f);
+    }
+
+    int DefaultSeed()
+    {
+        if (!Application.isPlaying)
+            return 12345;
+        return unchecked((int)(DateTime.UtcNow.Ticks & 0x7FFFFFFF) ^ GetInstanceID());
+    }
+
+    void BuildTrackUvs(List<Vector3> mids, int seed, float[] uvAlong, float[] uvSideOffset, float[] uvSideScale)
+    {
+        if (!randomizeTextureUvs)
+        {
+            for (int i = 0; i < mids.Count; i++)
+            {
+                uvAlong[i] = i * 0.08f;
+                uvSideOffset[i] = textureUvAcrossScale * 0.5f;
+                uvSideScale[i] = textureUvAcrossScale;
+            }
+            return;
+        }
+
+        var rng = new System.Random(seed ^ 0x4f1bbcdc);
+        float along = NextRange(rng, 0f, 8f);
+        float alongScale = NextRange(rng, textureUvSizeRandom.x, textureUvSizeRandom.y);
+        float sideScale = textureUvAcrossScale * NextRange(rng, textureUvSizeRandom.x, textureUvSizeRandom.y);
+        float sideOffset = textureUvAcrossScale * 0.5f + NextRange(rng, -textureUvPlacementJitter, textureUvPlacementJitter);
+        float targetAlongScale = alongScale;
+        float targetSideScale = sideScale;
+        float targetSideOffset = sideOffset;
+
+        for (int i = 0; i < mids.Count; i++)
+        {
+            if (i % 10 == 0)
+            {
+                targetAlongScale = NextRange(rng, textureUvSizeRandom.x, textureUvSizeRandom.y);
+                targetSideScale = textureUvAcrossScale * NextRange(rng, textureUvSizeRandom.x, textureUvSizeRandom.y);
+                targetSideOffset = textureUvAcrossScale * 0.5f + NextRange(rng, -textureUvPlacementJitter, textureUvPlacementJitter);
+            }
+
+            alongScale = Mathf.Lerp(alongScale, targetAlongScale, 0.18f);
+            sideScale = Mathf.Lerp(sideScale, targetSideScale, 0.12f);
+            sideOffset = Mathf.Lerp(sideOffset, targetSideOffset, 0.12f);
+            if (i > 0)
+                along += Vector3.Distance(mids[i], mids[i - 1]) * textureUvAlongScale * alongScale;
+
+            uvAlong[i] = along;
+            uvSideOffset[i] = sideOffset;
+            uvSideScale[i] = sideScale;
+        }
+    }
+
+    static float NextRange(System.Random rng, float min, float max)
+    {
+        if (max < min)
+            (min, max) = (max, min);
+        return min + (float)rng.NextDouble() * (max - min);
     }
 
     void EnsureWallParents()
@@ -249,6 +341,13 @@ public class CurvedIceTrack : MonoBehaviour
             var t = transform.Find("TrackSafetyNet");
             if (t != null)
                 _safetyNet = t;
+        }
+
+        if (_collectiblesRoot == null)
+        {
+            var t = transform.Find("ColorCollectibles");
+            if (t != null)
+                _collectiblesRoot = t;
         }
     }
 
@@ -389,48 +488,140 @@ public class CurvedIceTrack : MonoBehaviour
         box.isTrigger = false;
     }
 
+    void BuildColorCollectibles(List<Vector3> mids, List<Vector3> rights, int seed)
+    {
+        EnsureCollectibleRoot();
+        ClearChildren(_collectiblesRoot);
+        if (colorCollectibleCount <= 0 || mids.Count < 20)
+            return;
+
+        var rng = new System.Random(seed ^ 0x35b7c91);
+        int min = Mathf.Min(8, mids.Count - 1);
+        int max = Mathf.Max(min + 1, mids.Count - 8);
+        var colors = CollectibleColors();
+
+        for (int i = 0; i < colorCollectibleCount; i++)
+        {
+            int row = rng.Next(min, max);
+            int skin = 1 + rng.Next(0, 4);
+            float lateral = ((float)rng.NextDouble() * 2f - 1f) * trackWidth * 0.24f;
+            Vector3 p = mids[row] + rights[row] * lateral + Vector3.up * colorCollectibleHeight;
+
+            var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            go.name = "ColorCollectible_" + skin;
+            go.transform.SetParent(_collectiblesRoot, false);
+            go.transform.localPosition = p;
+            go.transform.localScale = Vector3.one * (colorCollectibleRadius * 2f);
+
+            var col = go.GetComponent<SphereCollider>();
+            col.isTrigger = true;
+            col.radius = colorCollectibleCollectionRadius / Mathf.Max(colorCollectibleRadius * 2f, 0.01f);
+
+            var item = go.AddComponent<PenguinColorCollectible>();
+            item.Configure(skin, colorCollectibleDuration);
+
+            var renderer = go.GetComponent<MeshRenderer>();
+            renderer.sharedMaterial = BuildCollectibleMaterial(colors[skin - 1]);
+        }
+    }
+
+    void EnsureCollectibleRoot()
+    {
+        if (_collectiblesRoot != null)
+            return;
+
+        var t = transform.Find("ColorCollectibles");
+        if (t != null)
+        {
+            _collectiblesRoot = t;
+            return;
+        }
+
+        var go = new GameObject("ColorCollectibles");
+        go.transform.SetParent(transform, false);
+        _collectiblesRoot = go.transform;
+    }
+
+    static void ClearChildren(Transform root)
+    {
+        for (int i = root.childCount - 1; i >= 0; i--)
+        {
+            var child = root.GetChild(i).gameObject;
+            if (Application.isPlaying)
+                Destroy(child);
+            else
+                DestroyImmediate(child);
+        }
+    }
+
+    static Material BuildCollectibleMaterial(Color c)
+    {
+        var shader = Shader.Find("Universal Render Pipeline/Lit");
+        if (shader == null)
+            shader = Shader.Find("Standard");
+        var m = new Material(shader);
+        m.color = c;
+        if (m.HasProperty("_BaseColor"))
+            m.SetColor("_BaseColor", c);
+        if (m.HasProperty("_EmissionColor"))
+            m.SetColor("_EmissionColor", c * 0.6f);
+        return m;
+    }
+
+    static Color[] CollectibleColors()
+    {
+        return new[]
+        {
+            new Color(0.05f, 0.28f, 0.95f),
+            new Color(0.9f, 0.04f, 0.03f),
+            new Color(1f, 0.22f, 0.72f),
+            new Color(0.05f, 0.55f, 0.14f)
+        };
+    }
+
     void BuildWallRibbon(Transform parent, Vector3[] edge, Vector3[] rgt, int rows, bool isLeft)
     {
-        var mc = parent.GetComponent<MeshCollider>();
-        var trackMc = GetComponent<MeshCollider>();
-        int segCount = rows - 1;
-        var v = new Vector3[segCount * 4];
-        var t = new int[segCount * 12];
-        int vi = 0;
-        int ti = 0;
-
         float rawOutward = wallThickness - wallInsetFromTrackEdge;
         float outwardDepth = Mathf.Clamp(rawOutward, wallMinOutwardDepth, 8f);
+        int cols = 6;
+        var v = new Vector3[rows * cols];
 
-        for (int i = 0; i < segCount; i++)
+        for (int i = 0; i < rows; i++)
         {
             float sign = isLeft ? -1f : 1f;
-            Vector3 o = rgt[i] * (sign * outwardDepth);
-            Vector3 base0 = edge[i] + o;
-            Vector3 base1 = edge[i + 1] + o;
-            Vector3 low0 = base0 - Vector3.up * wallExtendBelow;
-            Vector3 low1 = base1 - Vector3.up * wallExtendBelow;
-            Vector3 hi0 = base0 + Vector3.up * wallHeight;
-            Vector3 hi1 = base1 + Vector3.up * wallHeight;
+            Vector3 outward = rgt[i] * sign;
+            for (int c = 0; c < cols; c++)
+            {
+                float a = c / (float)(cols - 1);
+                float h = wallHeight * Mathf.Pow(a, 0.55f);
+                v[i * cols + c] = edge[i] + outward * (outwardDepth * a) + Vector3.up * h;
+            }
+        }
 
-            v[vi++] = low0;
-            v[vi++] = low1;
-            v[vi++] = hi1;
-            v[vi++] = hi0;
-
-            int b = vi - 4;
-            t[ti++] = b;
-            t[ti++] = b + 1;
-            t[ti++] = b + 2;
-            t[ti++] = b;
-            t[ti++] = b + 2;
-            t[ti++] = b + 3;
-            t[ti++] = b;
-            t[ti++] = b + 2;
-            t[ti++] = b + 1;
-            t[ti++] = b;
-            t[ti++] = b + 3;
-            t[ti++] = b + 2;
+        int quadCount = (rows - 1) * (cols - 1);
+        var t = new int[quadCount * 12];
+        int ti = 0;
+        for (int i = 0; i < rows - 1; i++)
+        {
+            for (int c = 0; c < cols - 1; c++)
+            {
+                int a = i * cols + c;
+                int b = a + 1;
+                int d = a + cols;
+                int e = d + 1;
+                t[ti++] = a;
+                t[ti++] = d;
+                t[ti++] = b;
+                t[ti++] = b;
+                t[ti++] = d;
+                t[ti++] = e;
+                t[ti++] = a;
+                t[ti++] = b;
+                t[ti++] = d;
+                t[ti++] = b;
+                t[ti++] = e;
+                t[ti++] = d;
+            }
         }
 
         var mesh = new Mesh { name = parent.name };
@@ -444,6 +635,8 @@ public class CurvedIceTrack : MonoBehaviour
             mf = parent.gameObject.AddComponent<MeshFilter>();
         mf.sharedMesh = mesh;
 
+        var mc = parent.GetComponent<MeshCollider>();
+        var trackMc = GetComponent<MeshCollider>();
         mc.sharedMesh = null;
         mc.convex = false;
         mc.sharedMesh = mesh;

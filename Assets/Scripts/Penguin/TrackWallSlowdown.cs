@@ -3,7 +3,7 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 public class TrackWallSlowdown : MonoBehaviour
 {
-    [SerializeField] [Range(0.04f, 0.45f)] float speedLossPerSecond = 0.14f;
+    [SerializeField] [Range(0f, 0.2f)] float speedLossPerSecond = 0.02f;
     [SerializeField] [Range(0.2f, 0.95f)] float yawAngularRetentionOnWall = 0.55f;
 
     Rigidbody _rb;
@@ -32,6 +32,12 @@ public class TrackWallSlowdown : MonoBehaviour
         float into = Vector3.Dot(v, n);
         if (into < 0f)
             v -= into * n;
+
+        if (n.y > 0.18f)
+        {
+            _rb.linearVelocity = v;
+            return;
+        }
 
         float damp = Mathf.Clamp01(1f - speedLossPerSecond * Time.fixedDeltaTime);
         v *= damp;

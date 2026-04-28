@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="12eda4d8-28ce-4631-916e-e9c0994f56ed" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/../../Editor/PenguinImportSetup.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../Editor/PenguinImportSetup.cs.meta" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../Editor/PenguinSkinMenu.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../../Editor/PenguinSkinMenu.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../Physics/SlopeSlide.physicMaterial" beforeDir="false" afterPath="$PROJECT_DIR$/../../Physics/SlopeSlide.physicMaterial" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../Scenes/SampleScene.unity" beforeDir="false" afterPath="$PROJECT_DIR$/../../Scenes/SampleScene.unity" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Camera/CameraFollow.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../Camera/CameraFollow.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Common/PenguinMaterialAlign.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../Common/PenguinMaterialAlign.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Penguin/PenguinColorCycle.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../Penguin/PenguinColorCycle.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Penguin/PenguinSlideDrive.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../Penguin/PenguinSlideDrive.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Penguin/PenguinSteer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../Penguin/PenguinSteer.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Track/CurvedIceTrack.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../Track/CurvedIceTrack.cs" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/TestWrite.cs" root0="SKIP_HIGHLIGHTING" />
+  </component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 8
+}]]></component>
+  <component name="ProjectId" id="3CyeEpV35QaXRnEyzLRnL6hD5aV" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="12eda4d8-28ce-4631-916e-e9c0994f56ed" name="Changes" comment="" />
+      <created>1777362128951</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1777362128951</updated>
+      <workItem from="1777362132619" duration="11000" />
+    </task>
+    <servers />
+  </component>
+  <component name="UnityProjectConfiguration" hasMinimizedUI="false" />
+  <component name="VcsManagerConfiguration">
+    <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.OperationCanceledException" breakIfHandledByOtherCode="false" displayValue="System.OperationCanceledException" />
+          <option name="timeStamp" value="1" />
+        </breakpoint>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.Threading.Tasks.TaskCanceledException" breakIfHandledByOtherCode="false" displayValue="System.Threading.Tasks.TaskCanceledException" />
+          <option name="timeStamp" value="2" />
+        </breakpoint>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.Threading.ThreadAbortException" breakIfHandledByOtherCode="false" displayValue="System.Threading.ThreadAbortException" />
+          <option name="timeStamp" value="3" />
+        </breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+</project>

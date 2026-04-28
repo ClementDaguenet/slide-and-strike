@@ -15,14 +15,17 @@ public static class PenguinMaterialAlign
         {
             var key = KeyFromMaterialName(reference[i] != null ? reference[i].name : "");
             Material found = null;
-            foreach (var m in variant)
+            if (!string.IsNullOrEmpty(key))
             {
-                if (m == null)
-                    continue;
-                if (KeyFromMaterialName(m.name) == key)
+                foreach (var m in variant)
                 {
-                    found = m;
-                    break;
+                    if (m == null)
+                        continue;
+                    if (KeyFromMaterialName(m.name) == key)
+                    {
+                        found = m;
+                        break;
+                    }
                 }
             }
 
@@ -98,11 +101,10 @@ public static class PenguinMaterialAlign
         return false;
     }
 
-    static bool IsSwappableColoredPart(string rawName)
+    public static bool IsRobeMaterialName(string rawName)
     {
         if (string.IsNullOrEmpty(rawName))
             return false;
-        var s = rawName.ToLowerInvariant();
         if (IsFixedPartFromBlackSkin(rawName))
             return false;
 
@@ -113,6 +115,16 @@ public static class PenguinMaterialAlign
         return k.Contains("body") || k.Contains("robe") || k.Contains("cloth") || k.Contains("suit") ||
                k.Contains("tux") || k.Contains("veste") || k.Contains("maillot") || k.Contains("costume") ||
                k.Contains("shirt") || k.Contains("torso") || k.Contains("dress");
+    }
+
+    static bool IsSwappableColoredPart(string rawName)
+    {
+        if (string.IsNullOrEmpty(rawName))
+            return false;
+        if (IsFixedPartFromBlackSkin(rawName))
+            return false;
+
+        return IsRobeMaterialName(rawName);
     }
 
     static string KeyFromMaterialName(string raw)

@@ -5,8 +5,8 @@ using UnityEngine.InputSystem;
 [DefaultExecutionOrder(50)]
 public class PenguinSteer : MonoBehaviour
 {
-    [SerializeField] float turnSpeedDegPerSec = 130f;
-    [SerializeField] float maxRotationDegreesPerSec = 145f;
+    [SerializeField] float turnSpeedDegPerSec = 280f;
+    [SerializeField] float maxRotationDegreesPerSec = 340f;
     [SerializeField] float groundedRayLength = 7f;
     [SerializeField] float raycastHeightOffset = 0.35f;
     [SerializeField] float groundSampleWidth = 0.5f;
@@ -15,7 +15,7 @@ public class PenguinSteer : MonoBehaviour
     [SerializeField] float targetRotationSmooth = 11f;
     [SerializeField] float minVelocityForForward = 0.85f;
     [SerializeField] float forwardFollowLerp = 3.2f;
-    [SerializeField] float leanNoseTowardIceDegrees = 12f;
+    [SerializeField] float leanNoseTowardIceDegrees = 0f;
 
     Rigidbody _rb;
     Vector3 _surfaceFlatForward;
@@ -37,7 +37,7 @@ public class PenguinSteer : MonoBehaviour
         _smoothedTargetRot = transform.rotation;
     }
 
-    static float ReadSteerInput()
+    public static float ReadSteerInput()
     {
         var k = Keyboard.current;
         if (k != null)
@@ -161,7 +161,7 @@ public class PenguinSteer : MonoBehaviour
             _surfaceFlatForward = Vector3.ProjectOnPlane(tfF, up).normalized;
 
         Quaternion idealRot = Quaternion.LookRotation(_surfaceFlatForward, up);
-        idealRot *= Quaternion.AngleAxis(-leanNoseTowardIceDegrees, Vector3.right);
+        idealRot *= Quaternion.AngleAxis(leanNoseTowardIceDegrees, Vector3.right);
         float blend = Mathf.Clamp01(targetRotationSmooth * Time.fixedDeltaTime);
         _smoothedTargetRot = Quaternion.Slerp(_smoothedTargetRot, idealRot, blend);
         _rb.MoveRotation(StepRotation(_rb.rotation, _smoothedTargetRot));

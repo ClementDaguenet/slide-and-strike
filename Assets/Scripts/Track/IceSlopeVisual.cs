@@ -3,8 +3,16 @@ using UnityEngine;
 [RequireComponent(typeof(MeshRenderer))]
 public class IceSlopeVisual : MonoBehaviour
 {
-    [SerializeField] Vector2 baseMapTiling = new Vector2(18f, 64f);
+    [SerializeField] Vector2 baseMapTiling = new Vector2(0.65f, 4.5f);
+    [SerializeField] bool randomizeTiling = true;
+    [SerializeField] Vector2 tilingRandomMultiplier = new Vector2(0.85f, 1.15f);
+    [SerializeField] bool randomizeTextureOffset = true;
+    [SerializeField] string oceanicResourceFolder = "OceanicFloes";
+    [SerializeField] bool useAdvancedOceanicMaps = false;
     [SerializeField] int textureSize = 768;
+
+    Vector2 _runtimeTiling;
+    Vector2 _runtimeOffset;
 
     void Start()
     {
@@ -12,20 +20,56 @@ public class IceSlopeVisual : MonoBehaviour
         if (mr == null)
             return;
 
-        Texture2D tex = CreateIceTexture(textureSize);
+        Texture2D baseMap = LoadOceanicTexture("basecolor");
+        if (baseMap == null)
+            baseMap = CreateIceTexture(textureSize);
+
+        _runtimeTiling = baseMapTiling;
+        if (randomizeTiling)
+        {
+            float mult = Random.Range(tilingRandomMultiplier.x, tilingRandomMultiplier.y);
+            _runtimeTiling *= mult;
+        }
+        _runtimeOffset = randomizeTextureOffset ? new Vector2(Random.value, Random.value) : Vector2.zero;
+
+        Material m = new Material(mr.sharedMaterial);
+        m.name = "IceTrackRuntime";
+        SetTexture(m, "_BaseMap", baseMap);
+        SetTexture(m, "_MainTex", baseMap);
+        if (useAdvancedOceanicMaps)
+        {
+            SetTexture(m, "_BumpMap", LoadOceanicTexture("normal"));
+            SetTexture(m, "_OcclusionMap", LoadOceanicTexture("ambientOcclusion"));
+        }
+        m.SetColor("_BaseColor", Color.white);
+        m.SetFloat("_Smoothness", 0.78f);
+        m.SetFloat("_Metallic", 0f);
+        if (m.HasProperty("_BumpScale"))
+            m.SetFloat("_BumpScale", 0.18f);
+        if (m.HasProperty("_OcclusionStrength"))
+            m.SetFloat("_OcclusionStrength", 0.45f);
+        if (useAdvancedOceanicMaps)
+            m.EnableKeyword("_NORMALMAP");
+        mr.material = m;
+    }
+
+    Texture2D LoadOceanicTexture(string suffix)
+    {
+        return Resources.Load<Texture2D>(oceanicResourceFolder + "/OceanicFloes_" + suffix);
+    }
+
+    void SetTexture(Material m, string propertyName, Texture2D tex)
+    {
+        if (tex == null || !m.HasProperty(propertyName))
+            return;
+
         tex.wrapModeU = TextureWrapMode.Repeat;
         tex.wrapModeV = TextureWrapMode.Repeat;
         tex.filterMode = FilterMode.Trilinear;
         tex.anisoLevel = 8;
-
-        Material m = new Material(mr.sharedMaterial);
-        m.name = "IceTrackRuntime";
-        m.SetTexture("_BaseMap", tex);
-        m.SetColor("_BaseColor", Color.white);
-        m.SetFloat("_Smoothness", 0.88f);
-        m.SetFloat("_Metallic", 0.035f);
-        m.SetTextureScale("_BaseMap", baseMapTiling);
-        mr.material = m;
+        m.SetTexture(propertyName, tex);
+        m.SetTextureScale(propertyName, _runtimeTiling);
+        m.SetTextureOffset(propertyName, _runtimeOffset);
     }
 
     static float Hash(float x, float y)

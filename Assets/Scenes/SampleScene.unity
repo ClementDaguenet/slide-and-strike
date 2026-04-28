@@ -271,8 +271,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   targetName: pinguin-black
   followDistance: 6.2
-  heightAboveTarget: 2.1
-  lookAtHeightOnTarget: 0.45
+  heightAboveTarget: 2.8
+  lookAtHeightOnTarget: 0.65
   positionSmoothTime: 0.18
   rotationSmoothTime: 0.15
   cameraYawOffsetDegrees: 0
@@ -605,8 +605,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e1f2a3b4c5d64e7f8091a2b3c4d5e6f7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  turnSpeedDegPerSec: 130
-  maxRotationDegreesPerSec: 145
+  turnSpeedDegPerSec: 280
+  maxRotationDegreesPerSec: 340
   groundedRayLength: 7
   raycastHeightOffset: 0.35
   groundSampleWidth: 0.5
@@ -617,7 +617,7 @@ MonoBehaviour:
   targetRotationSmooth: 11
   minVelocityForForward: 0.85
   forwardFollowLerp: 3.2
-  leanNoseTowardIceDegrees: 12
+  leanNoseTowardIceDegrees: 0
 --- !u!114 &2012845609
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -631,13 +631,25 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   alongSlopeAcceleration: 6.5
-  groundedRayLength: 6
+  groundedRayLength: 8
+  raycastOriginHeight: 0.12
+  groundSampleWidth: 0.48
   groundMask:
     serializedVersion: 2
     m_Bits: 4294967295
   maxKmhForIdleNudge: 0.85
   idleNudgeAcceleration: 5.5
-  groundSurfacePadding: -0.22
+  steerAssistAcceleration: 34
+  steerVelocityTurnAcceleration: 26
+  steerForwardPullAcceleration: 4.2
+  maxKmhForSteerAssist: 120
+  groundSurfacePadding: 0
+  maxUpwardVelocityWhenNearGround: 2.2
+  groundProximityForClamp: 4.5
+  outwardVelocityDamp: 0.94
+  stickSpring: 0
+  maxStickAcceleration: 0
+  gapIgnoreBelow: 0.05
 --- !u!114 &2012845610
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -677,7 +689,8 @@ MonoBehaviour:
     - {fileID: 9003353085549565770, guid: cdc7f5b8c9e3a6145925f72fb50757ca, type: 3}
     - {fileID: -8848810374240701247, guid: cdc7f5b8c9e3a6145925f72fb50757ca, type: 3}
   startSkinIndex: 0
-  robeMaterialSlots: []
+  robeMaterialSlots:
+  - 2
 --- !u!114 &2012845611
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -690,7 +703,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ab12cd34ef5600112233445566778899, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  speedLossPerSecond: 0.14
+  speedLossPerSecond: 0.02
   yawAngularRetentionOnWall: 0.55
 --- !u!114 &2012845612
 MonoBehaviour:
@@ -828,10 +841,15 @@ MonoBehaviour:
   alternateLeftRightTurns: 1
   trackWidth: 15
   widthSegments: 4
-  wallHeight: 11
-  wallThickness: 1.65
-  wallInsetFromTrackEdge: 1.1
-  wallMinOutwardDepth: 0.52
+  randomizeTextureUvs: 1
+  textureUvAlongScale: 0.018
+  textureUvAcrossScale: 1.8
+  textureUvSizeRandom: {x: 0.55, y: 1.55}
+  textureUvPlacementJitter: 0.45
+  wallHeight: 4.5
+  wallThickness: 2.8
+  wallInsetFromTrackEdge: 0
+  wallMinOutwardDepth: 1.8
   generateOnAwake: 1
   firstStraightVerticalDrop: 14
   trackYawDegrees: 270
@@ -840,6 +858,12 @@ MonoBehaviour:
   buildSafetyNetCollider: 1
   safetyNetPaddingXZ: 95
   safetyNetThickness: 38
+  buildColorCollectibles: 1
+  colorCollectibleCount: 32
+  colorCollectibleHeight: 1.15
+  colorCollectibleRadius: 0.75
+  colorCollectibleCollectionRadius: 1.25
+  colorCollectibleDuration: 5
 --- !u!64 &2012845705
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -874,7 +898,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f1e2d3c4b5a697889aab0c1d2e3f4051, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  baseMapTiling: {x: 16, y: 140}
+  baseMapTiling: {x: 0.65, y: 4.5}
+  randomizeTiling: 1
+  tilingRandomMultiplier: {x: 0.85, y: 1.15}
+  randomizeTextureOffset: 1
+  oceanicResourceFolder: OceanicFloes
+  useAdvancedOceanicMaps: 0
   textureSize: 512
 --- !u!1 &2012845801
 GameObject:

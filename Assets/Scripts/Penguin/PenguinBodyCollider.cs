@@ -45,7 +45,7 @@ public class PenguinBodyCollider : MonoBehaviour
             cap = gameObject.AddComponent<CapsuleCollider>();
 
         cap.direction = 1;
-        float sink = Mathf.Min(b.size.y * 0.06f, 0.045f);
+        float sink = Mathf.Min(b.size.y * 0.01f, 0.006f);
         cap.center = new Vector3(b.center.x, b.center.y - sink, b.center.z);
         cap.height = Mathf.Max(b.size.y, 0.0001f);
         cap.radius = Mathf.Max(b.extents.x, b.extents.z, cap.height * 0.12f, 0.0001f);
