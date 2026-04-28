@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using UnityEngine.InputSystem.UI;
@@ -16,6 +16,8 @@ public class SpeedHud : MonoBehaviour
     void Awake()
     {
         EnsureEventSystem();
+        EnsurePauseMenu();
+        EnsureStartMenu();
         BuildUi();
         BottleScore.Finished += OnFinished;
     }
@@ -32,6 +34,22 @@ public class SpeedHud : MonoBehaviour
         var es = new GameObject("EventSystem");
         es.AddComponent<EventSystem>();
         es.AddComponent<InputSystemUIInputModule>();
+    }
+
+    static void EnsurePauseMenu()
+    {
+        if (Object.FindFirstObjectByType<PauseMenu>() != null)
+            return;
+
+        new GameObject("PauseMenu").AddComponent<PauseMenu>();
+    }
+
+    static void EnsureStartMenu()
+    {
+        if (Object.FindFirstObjectByType<StartMenu>() != null)
+            return;
+
+        new GameObject("StartMenu").AddComponent<StartMenu>();
     }
 
     void Start()

@@ -1,11 +1,11 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 [RequireComponent(typeof(MeshRenderer))]
 public class IceSlopeVisual : MonoBehaviour
 {
-    [SerializeField] Vector2 baseMapTiling = new Vector2(0.65f, 4.5f);
+    [SerializeField] Vector2 baseMapTiling = new Vector2(1.1f, 2.2f);
     [SerializeField] bool randomizeTiling = true;
-    [SerializeField] Vector2 tilingRandomMultiplier = new Vector2(0.85f, 1.15f);
+    [SerializeField] Vector2 tilingRandomMultiplier = new Vector2(0.65f, 1.45f);
     [SerializeField] bool randomizeTextureOffset = true;
     [SerializeField] string oceanicResourceFolder = "OceanicFloes";
     [SerializeField] bool useAdvancedOceanicMaps = false;

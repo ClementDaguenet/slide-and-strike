@@ -1,15 +1,14 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class PenguinColorCollectible : MonoBehaviour
 {
-    [SerializeField] int skinIndex = 1;
-    [SerializeField] float duration = 5f;
+    [SerializeField] PenguinPowerUpType powerUpType = PenguinPowerUpType.Blue;
     [SerializeField] float spinSpeed = 90f;
+    bool _collected;
 
     public void Configure(int nextSkinIndex, float effectDuration)
     {
-        skinIndex = nextSkinIndex;
-        duration = effectDuration;
+        powerUpType = (PenguinPowerUpType)nextSkinIndex;
     }
 
     void Update()
@@ -19,11 +18,36 @@ public class PenguinColorCollectible : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
-        var colorCycle = other.GetComponentInParent<PenguinColorCycle>();
-        if (colorCycle == null)
+        var mirror = other.GetComponentInParent<PenguinMirrorClone>();
+        if (mirror != null)
+        {
+            TryCollect(mirror.SourcePowerUps);
+            return;
+        }
+
+        var controller = other.GetComponentInParent<PenguinPowerUpController>();
+        if (controller == null)
+        {
+            var colorCycle = other.GetComponentInParent<PenguinColorCycle>();
+            if (colorCycle != null)
+                controller = colorCycle.gameObject.AddComponent<PenguinPowerUpController>();
+        }
+
+        if (controller == null)
             return;
 
-        colorCycle.ActivateTemporarySkin(skinIndex, duration);
+        TryCollect(controller);
+    }
+
+    public bool TryCollect(PenguinPowerUpController controller)
+    {
+        if (_collected || controller == null)
+            return false;
+        if (!controller.TryStore(powerUpType))
+            return false;
+
+        _collected = true;
         gameObject.SetActive(false);
+        return true;
     }
 }

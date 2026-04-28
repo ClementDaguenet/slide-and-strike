@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -9,6 +9,8 @@ using UnityEngine;
 [DefaultExecutionOrder(-50)]
 public class CurvedIceTrack : MonoBehaviour
 {
+    static CurvedIceTrack _activeTrack;
+
     [SerializeField] float firstStraightLength = 78f;
     [SerializeField] [Min(4)] int firstStraightSegments = 36;
     [SerializeField] [Min(0f)] float firstStraightVerticalDrop = 14f;
@@ -24,20 +26,21 @@ public class CurvedIceTrack : MonoBehaviour
     [SerializeField] float verticalDropPerArc = 16f;
     [SerializeField] bool alternateLeftRightTurns = true;
     [SerializeField] bool randomizeCourse = true;
+    [SerializeField] bool randomizeSeedEachRun = true;
     [SerializeField] int courseRandomSeed;
-    [SerializeField] float legStraightLengthJitter = 16f;
-    [SerializeField] float arcSweepDegreesJitter = 22f;
-    [SerializeField] float arcRadiusJitter = 18f;
-    [SerializeField] float verticalDropPerArcJitter = 6f;
-    [SerializeField] float firstStraightLengthJitter = 10f;
+    [SerializeField] float legStraightLengthJitter = 34f;
+    [SerializeField] float arcSweepDegreesJitter = 38f;
+    [SerializeField] float arcRadiusJitter = 30f;
+    [SerializeField] float verticalDropPerArcJitter = 11f;
+    [SerializeField] float firstStraightLengthJitter = 24f;
 
     [SerializeField] float trackWidth = 15f;
     [SerializeField] [Min(1)] int widthSegments = 4;
     [SerializeField] bool randomizeTextureUvs = true;
-    [SerializeField] float textureUvAlongScale = 0.018f;
-    [SerializeField] float textureUvAcrossScale = 1.8f;
-    [SerializeField] Vector2 textureUvSizeRandom = new Vector2(0.55f, 1.55f);
-    [SerializeField] float textureUvPlacementJitter = 0.45f;
+    [SerializeField] float textureUvAlongScale = 0.026f;
+    [SerializeField] float textureUvAcrossScale = 1.05f;
+    [SerializeField] Vector2 textureUvSizeRandom = new Vector2(0.35f, 2.2f);
+    [SerializeField] float textureUvPlacementJitter = 0.9f;
 
     [SerializeField] float wallHeight = 4.5f;
     [SerializeField] float wallThickness = 2.8f;
@@ -62,9 +65,16 @@ public class CurvedIceTrack : MonoBehaviour
     [SerializeField] float bottleScale = 1f;
     [SerializeField] float maxBottleSpawnSlopeDegrees = 6f;
     [SerializeField] bool buildEndBowlingRack = true;
-    [SerializeField] float endRackDistanceFromWall = 18f;
+    [SerializeField] float endRackDistanceFromWall = 32f;
     [SerializeField] float endRackPinSpacing = 3.2f;
-    [SerializeField] float finishTriggerDepth = 6f;
+    [SerializeField] float finishTriggerDepth = 2.5f;
+    [SerializeField] bool buildFans = true;
+    [SerializeField] [Min(0)] int fanCount = 14;
+    [SerializeField] string fanResourcePath = "Fans/fan_blade";
+    [SerializeField] float fanWindAcceleration = 24f;
+    [SerializeField] float fanWindLength = 14f;
+    [SerializeField] float fanScale = 1.5f;
+    [SerializeField] Vector3 fanVisualEulerOffset = new Vector3(270f, 0f, 0f);
 
     [SerializeField] bool generateOnAwake = true;
 
@@ -77,6 +87,9 @@ public class CurvedIceTrack : MonoBehaviour
     Transform _collectiblesRoot;
     Transform _bottlesRoot;
     Transform _finishTrigger;
+    Transform _fansRoot;
+    List<Vector3> _lastMids;
+    List<Vector3> _lastRights;
 
     void Awake()
     {
@@ -123,7 +136,7 @@ public class CurvedIceTrack : MonoBehaviour
         var mids = new List<Vector3>(512);
         var rights = new List<Vector3>(512);
 
-        int seed = courseRandomSeed != 0 ? courseRandomSeed : DefaultSeed();
+        int seed = CourseSeed();
         var rng = randomizeCourse ? new System.Random(seed) : null;
 
         float fsLen = firstStraightLength + (rng != null ? (float)(rng.NextDouble() * 2.0 - 1.0) * firstStraightLengthJitter : 0f);
@@ -139,7 +152,12 @@ public class CurvedIceTrack : MonoBehaviour
         {
             int sign;
             if (rng != null)
-                sign = rng.Next(0, 2) == 0 ? 1 : -1;
+            {
+                if (alternateLeftRightTurns && rng.NextDouble() < 0.62f)
+                    sign = leg % 2 == 0 ? 1 : -1;
+                else
+                    sign = rng.Next(0, 2) == 0 ? 1 : -1;
+            }
             else
                 sign = alternateLeftRightTurns ? (leg % 2 == 0 ? 1 : -1) : 1;
 
@@ -246,12 +264,73 @@ public class CurvedIceTrack : MonoBehaviour
             BuildColorCollectibles(mids, rights, seed);
         if (Application.isPlaying && buildBottlePins)
             BuildBottlePins(mids, rights, seed);
+        if (Application.isPlaying && buildFans)
+            BuildFans(mids, rights, seed);
         if (Application.isPlaying && buildEndBowlingRack)
             BuildEndBowlingRack(mids, rights);
-        if (Application.isPlaying)
-            BuildFinishTrigger(mids, rights);
-
         transform.localRotation = Quaternion.Euler(0f, trackYawDegrees, 0f);
+        _activeTrack = this;
+        _lastMids = mids;
+        _lastRights = rights;
+    }
+
+    public static bool TryMirrorPose(Vector3 worldPosition, Vector3 worldForward, out Vector3 mirroredPosition,
+        out Vector3 mirroredForward)
+    {
+        mirroredPosition = worldPosition;
+        mirroredForward = worldForward;
+        if (_activeTrack == null || _activeTrack._lastMids == null || _activeTrack._lastRights == null)
+            return false;
+        return _activeTrack.TryMirrorPoseInternal(worldPosition, worldForward, out mirroredPosition, out mirroredForward);
+    }
+
+    public static bool IsNearEnd(Vector3 worldPosition, float minProgress)
+    {
+        if (_activeTrack == null || _activeTrack._lastMids == null || _activeTrack._lastMids.Count < 2)
+            return false;
+
+        int nearest = _activeTrack.NearestTrackRow(worldPosition);
+        float progress = nearest / (float)(_activeTrack._lastMids.Count - 1);
+        return progress >= minProgress;
+    }
+
+    bool TryMirrorPoseInternal(Vector3 worldPosition, Vector3 worldForward, out Vector3 mirroredPosition,
+        out Vector3 mirroredForward)
+    {
+        mirroredPosition = worldPosition;
+        mirroredForward = worldForward;
+        if (_lastMids.Count == 0)
+            return false;
+
+        int best = NearestTrackRow(worldPosition);
+
+        Vector3 center = transform.TransformPoint(_lastMids[best]);
+        Vector3 right = transform.TransformDirection(_lastRights[best]).normalized;
+        float lateral = Vector3.Dot(worldPosition - center, right);
+        mirroredPosition = worldPosition - right * (2f * lateral);
+        mirroredForward = Vector3.Reflect(worldForward, right);
+        mirroredForward.y = worldForward.y;
+        if (mirroredForward.sqrMagnitude < 0.001f)
+            mirroredForward = -worldForward;
+        mirroredForward.Normalize();
+        return true;
+    }
+
+    int NearestTrackRow(Vector3 worldPosition)
+    {
+        int best = 0;
+        float bestDist = float.PositiveInfinity;
+        for (int i = 0; i < _lastMids.Count; i++)
+        {
+            Vector3 mid = transform.TransformPoint(_lastMids[i]);
+            float dist = (worldPosition - mid).sqrMagnitude;
+            if (dist < bestDist)
+            {
+                bestDist = dist;
+                best = i;
+            }
+        }
+        return best;
     }
 
     int DefaultSeed()
@@ -259,6 +338,13 @@ public class CurvedIceTrack : MonoBehaviour
         if (!Application.isPlaying)
             return 12345;
         return unchecked((int)(DateTime.UtcNow.Ticks & 0x7FFFFFFF) ^ GetInstanceID());
+    }
+
+    int CourseSeed()
+    {
+        if (Application.isPlaying && randomizeSeedEachRun)
+            return DefaultSeed();
+        return courseRandomSeed != 0 ? courseRandomSeed : DefaultSeed();
     }
 
     void BuildTrackUvs(List<Vector3> mids, int seed, float[] uvAlong, float[] uvSideOffset, float[] uvSideScale)
@@ -285,18 +371,18 @@ public class CurvedIceTrack : MonoBehaviour
 
         for (int i = 0; i < mids.Count; i++)
         {
-            if (i % 10 == 0)
+            if (i % 6 == 0)
             {
                 targetAlongScale = NextRange(rng, textureUvSizeRandom.x, textureUvSizeRandom.y);
                 targetSideScale = textureUvAcrossScale * NextRange(rng, textureUvSizeRandom.x, textureUvSizeRandom.y);
                 targetSideOffset = textureUvAcrossScale * 0.5f + NextRange(rng, -textureUvPlacementJitter, textureUvPlacementJitter);
             }
 
-            alongScale = Mathf.Lerp(alongScale, targetAlongScale, 0.18f);
-            sideScale = Mathf.Lerp(sideScale, targetSideScale, 0.12f);
-            sideOffset = Mathf.Lerp(sideOffset, targetSideOffset, 0.12f);
+            alongScale = Mathf.Lerp(alongScale, targetAlongScale, 0.32f);
+            sideScale = Mathf.Lerp(sideScale, targetSideScale, 0.26f);
+            sideOffset = Mathf.Lerp(sideOffset, targetSideOffset, 0.26f);
             if (i > 0)
-                along += Vector3.Distance(mids[i], mids[i - 1]) * textureUvAlongScale * alongScale;
+                along += Vector3.Distance(mids[i], mids[i - 1]) * textureUvAlongScale * alongScale * NextRange(rng, 0.72f, 1.28f);
 
             uvAlong[i] = along;
             uvSideOffset[i] = sideOffset;
@@ -384,6 +470,13 @@ public class CurvedIceTrack : MonoBehaviour
             if (t != null)
                 _finishTrigger = t;
         }
+
+        if (_fansRoot == null)
+        {
+            var t = transform.Find("Fans");
+            if (t != null)
+                _fansRoot = t;
+        }
     }
 
     void BuildEdgeWalls(List<Vector3> mids, List<Vector3> rights)
@@ -427,6 +520,16 @@ public class CurvedIceTrack : MonoBehaviour
 
         BuildCapMesh(_wallStart, left0, right0);
         BuildCapMesh(_wallEnd, left1, right1);
+        EnsureEndWallFinish();
+    }
+
+    void EnsureEndWallFinish()
+    {
+        if (_wallEnd == null)
+            return;
+
+        if (_wallEnd.GetComponent<TrackFinishTrigger>() == null)
+            _wallEnd.gameObject.AddComponent<TrackFinishTrigger>();
     }
 
     void EnsureCapWall(ref Transform t, string name)
@@ -538,7 +641,7 @@ public class CurvedIceTrack : MonoBehaviour
         for (int i = 0; i < colorCollectibleCount; i++)
         {
             int row = rng.Next(min, max);
-            int skin = 1 + rng.Next(0, 4);
+            int skin = 1 + rng.Next(0, 5);
             float lateral = ((float)rng.NextDouble() * 2f - 1f) * trackWidth * 0.24f;
             Vector3 p = mids[row] + rights[row] * lateral + Vector3.up * colorCollectibleHeight;
 
@@ -628,6 +731,106 @@ public class CurvedIceTrack : MonoBehaviour
                     return;
             }
         }
+    }
+
+    void BuildFans(List<Vector3> mids, List<Vector3> rights, int seed)
+    {
+        EnsureFansRoot();
+        ClearChildren(_fansRoot);
+        if (fanCount <= 0 || mids.Count < 32)
+            return;
+
+        var prefab = LoadFanPrefab();
+        var rng = new System.Random(seed ^ 0x216b31);
+        int min = Mathf.Min(18, mids.Count - 1);
+        int max = Mathf.Max(min + 1, mids.Count - 20);
+
+        for (int i = 0; i < fanCount; i++)
+        {
+            float t = (i + 0.5f) / fanCount;
+            int row = Mathf.RoundToInt(Mathf.Lerp(min, max - 1, t));
+            row = Mathf.Clamp(row + rng.Next(-8, 9), min, max - 1);
+
+            int side = rng.Next(0, 2) == 0 ? -1 : 1;
+            Vector3 right = rights[row].normalized;
+            Vector3 forward = RowForward(mids, row);
+            Vector3 p = mids[row] + right * (side * trackWidth * 0.58f) + Vector3.up * 0.5f;
+            Vector3 windDir = -right * side;
+
+            var go = new GameObject("FanWind");
+            go.transform.SetParent(_fansRoot, false);
+            go.transform.localPosition = p;
+            go.transform.localRotation = Quaternion.LookRotation(forward, Vector3.up);
+
+            if (prefab != null)
+            {
+                var visual = Instantiate(prefab, go.transform);
+                visual.name = "FanVisual";
+                visual.transform.localPosition = Vector3.zero;
+                visual.transform.rotation = Quaternion.LookRotation(transform.TransformDirection(windDir), Vector3.up) *
+                                            Quaternion.Euler(fanVisualEulerOffset);
+                visual.transform.localScale = Vector3.one * fanScale;
+                StripImportedSceneComponents(visual);
+                NormalizeVisualHeight(visual, 2.8f * fanScale);
+                CenterVisualOnRoot(visual, go.transform.position);
+            }
+            else
+            {
+                CreateFallbackFanVisual(go.transform, side);
+            }
+
+            var box = go.AddComponent<BoxCollider>();
+            box.isTrigger = true;
+            box.center = new Vector3(-side * trackWidth * 0.42f, 2.2f, 0f);
+            box.size = new Vector3(trackWidth * 0.84f, 5f, fanWindLength);
+
+            var wind = go.AddComponent<FanWindZone>();
+            wind.Configure(transform.TransformDirection(windDir), fanWindAcceleration, Mathf.Max(2f, fanWindLength * 0.22f));
+        }
+    }
+
+    GameObject LoadFanPrefab()
+    {
+        var prefab = Resources.Load<GameObject>(fanResourcePath);
+        if (prefab != null)
+            return prefab;
+
+        var allFans = Resources.LoadAll<GameObject>("Fans");
+        if (allFans == null || allFans.Length == 0)
+            return null;
+        foreach (var fan in allFans)
+        {
+            if (fan != null && fan.name.ToLowerInvariant().Contains("fan_blade"))
+                return fan;
+        }
+        return allFans[0];
+    }
+
+    static Vector3 RowForward(List<Vector3> mids, int row)
+    {
+        Vector3 prev = mids[Mathf.Max(0, row - 1)];
+        Vector3 next = mids[Mathf.Min(mids.Count - 1, row + 1)];
+        Vector3 fwd = next - prev;
+        fwd.y = 0f;
+        if (fwd.sqrMagnitude < 0.001f)
+            return Vector3.forward;
+        return fwd.normalized;
+    }
+
+    static void CreateFallbackFanVisual(Transform parent, int side)
+    {
+        var stand = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        stand.name = "FanFallbackStand";
+        stand.transform.SetParent(parent, false);
+        stand.transform.localPosition = Vector3.up * 0.9f;
+        stand.transform.localScale = new Vector3(0.18f, 0.9f, 0.18f);
+
+        var head = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        head.name = "FanFallbackHead";
+        head.transform.SetParent(parent, false);
+        head.transform.localPosition = Vector3.up * 1.9f;
+        head.transform.localRotation = Quaternion.Euler(0f, side > 0 ? 90f : -90f, 90f);
+        head.transform.localScale = new Vector3(0.75f, 0.18f, 0.75f);
     }
 
     void BuildFinishTrigger(List<Vector3> mids, List<Vector3> rights)
@@ -728,6 +931,23 @@ public class CurvedIceTrack : MonoBehaviour
             _finishTrigger.gameObject.AddComponent<TrackFinishTrigger>();
     }
 
+    void EnsureFansRoot()
+    {
+        if (_fansRoot != null)
+            return;
+
+        var t = transform.Find("Fans");
+        if (t != null)
+        {
+            _fansRoot = t;
+            return;
+        }
+
+        var go = new GameObject("Fans");
+        go.transform.SetParent(transform, false);
+        _fansRoot = go.transform;
+    }
+
     void EnsureCollectibleRoot()
     {
         if (_collectiblesRoot != null)
@@ -782,6 +1002,16 @@ public class CurvedIceTrack : MonoBehaviour
 
     static void NormalizeBottleVisual(GameObject go, float targetHeight)
     {
+        NormalizeVisualHeight(go, targetHeight);
+    }
+
+    static void CenterBottleVisualOnRoot(GameObject visual, Vector3 rootPosition)
+    {
+        CenterVisualOnRoot(visual, rootPosition);
+    }
+
+    static void NormalizeVisualHeight(GameObject go, float targetHeight)
+    {
         if (targetHeight <= 0f || !TryGetRendererBounds(go, out Bounds b) || b.size.y <= 0.001f)
             return;
 
@@ -789,7 +1019,7 @@ public class CurvedIceTrack : MonoBehaviour
         go.transform.localScale *= scale;
     }
 
-    static void CenterBottleVisualOnRoot(GameObject visual, Vector3 rootPosition)
+    static void CenterVisualOnRoot(GameObject visual, Vector3 rootPosition)
     {
         if (!TryGetRendererBounds(visual, out Bounds b))
             return;
@@ -878,7 +1108,8 @@ public class CurvedIceTrack : MonoBehaviour
             new Color(0.05f, 0.28f, 0.95f),
             new Color(0.9f, 0.04f, 0.03f),
             new Color(1f, 0.22f, 0.72f),
-            new Color(0.05f, 0.55f, 0.14f)
+            new Color(0.05f, 0.55f, 0.14f),
+            new Color(0.48f, 0.48f, 0.5f)
         };
     }
 

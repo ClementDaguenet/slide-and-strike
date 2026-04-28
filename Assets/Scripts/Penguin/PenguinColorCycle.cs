@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 [ExecuteAlways]
 [DefaultExecutionOrder(-100)]
@@ -21,11 +21,11 @@ public class PenguinColorCycle : MonoBehaviour
     PenguinBodyCollider _body;
     int[] _autoRobeSlots;
     MaterialPropertyBlock _robeBlock;
-    float _revertAt = -1f;
 
     void Awake()
     {
         CacheComponents();
+        EnsurePowerUpController();
         ApplyStartSkin();
     }
 
@@ -61,30 +61,22 @@ public class PenguinColorCycle : MonoBehaviour
         }
     }
 
-    void Update()
-    {
-        if (!Application.isPlaying || _revertAt < 0f)
-            return;
-
-        if (Time.time < _revertAt)
-            return;
-
-        _revertAt = -1f;
-        Apply(0);
-    }
-
     public void ActivateTemporarySkin(int index, float duration)
     {
         if (skinsInOrder == null || skinsInOrder.Length == 0)
             return;
-        _index = Mathf.Clamp(index, 0, skinsInOrder.Length - 1);
+        ApplySkin(index);
+    }
+
+    public void ApplySkin(int index)
+    {
+        _index = Mathf.Clamp(index, 0, 5);
         Apply(_index);
-        _revertAt = Time.time + Mathf.Max(0.1f, duration);
     }
 
     void Apply(int index)
     {
-        if (skinsInOrder == null || index < 0 || index >= skinsInOrder.Length)
+        if (skinsInOrder == null || index < 0 || index > 5)
             return;
         if (_mf == null || _mr == null)
             return;
@@ -133,6 +125,9 @@ public class PenguinColorCycle : MonoBehaviour
 
         int donorIndex = index;
         if (donorIndex <= 0)
+            return next;
+
+        if (donorIndex >= skinsInOrder.Length)
             return next;
 
         var variant = skinsInOrder[donorIndex].materials;
@@ -231,8 +226,15 @@ public class PenguinColorCycle : MonoBehaviour
             case 2: return new Color(0.9f, 0.04f, 0.03f);
             case 3: return new Color(1f, 0.22f, 0.72f);
             case 4: return new Color(0.05f, 0.55f, 0.14f);
+            case 5: return new Color(0.48f, 0.48f, 0.5f);
             default: return new Color(0.015f, 0.015f, 0.018f);
         }
+    }
+
+    void EnsurePowerUpController()
+    {
+        if (Application.isPlaying && GetComponent<PenguinPowerUpController>() == null)
+            gameObject.AddComponent<PenguinPowerUpController>();
     }
 
     static Color ReadMaterialColor(Material m)

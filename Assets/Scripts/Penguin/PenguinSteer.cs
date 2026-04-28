@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.InputSystem;
 
 [RequireComponent(typeof(Rigidbody))]
@@ -22,6 +22,8 @@ public class PenguinSteer : MonoBehaviour
     Vector3 _smoothGroundUp = Vector3.up;
     Quaternion _smoothedTargetRot;
     bool _hasForward;
+
+    public float InputSign { get; set; } = 1f;
 
     void Awake()
     {
@@ -98,7 +100,7 @@ public class PenguinSteer : MonoBehaviour
 
     void FixedUpdate()
     {
-        float input = ReadSteerInput();
+        float input = ReadSteerInput() * InputSign;
 
         Vector3 origin = transform.position + Vector3.up * raycastHeightOffset;
         if (!TryGroundNormal(origin, out Vector3 rawNormal))

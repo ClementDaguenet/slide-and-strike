@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -27,6 +27,9 @@ public class PenguinSlideDrive : MonoBehaviour
 
     Rigidbody _rb;
     CapsuleCollider _cap;
+
+    public float PowerUpAccelerationMultiplier { get; set; } = 1f;
+    public float InputSign { get; set; } = 1f;
 
     void Awake()
     {
@@ -77,7 +80,7 @@ public class PenguinSlideDrive : MonoBehaviour
                 alongSlide = (gPlane.normalized * 0.78f + vPlane.normalized * 0.22f).normalized;
             else
                 alongSlide = gPlane.normalized;
-            _rb.AddForce(alongSlide * alongSlopeAcceleration, ForceMode.Acceleration);
+            _rb.AddForce(alongSlide * (alongSlopeAcceleration * PowerUpAccelerationMultiplier), ForceMode.Acceleration);
         }
         else
         {
@@ -167,7 +170,7 @@ public class PenguinSlideDrive : MonoBehaviour
         if (kmh > maxKmhForSteerAssist)
             return;
 
-        float steer = PenguinSteer.ReadSteerInput();
+        float steer = PenguinSteer.ReadSteerInput() * InputSign;
         if (Mathf.Abs(steer) < 0.01f)
             return;
 
@@ -186,7 +189,7 @@ public class PenguinSlideDrive : MonoBehaviour
             _rb.AddForce(turnForce, ForceMode.Acceleration);
         }
 
-        _rb.AddForce(desiredForward * steerForwardPullAcceleration, ForceMode.Acceleration);
+            _rb.AddForce(desiredForward * (steerForwardPullAcceleration * PowerUpAccelerationMultiplier), ForceMode.Acceleration);
     }
 
     void KillLiftAlongGroundNormal(Vector3 groundNormal)

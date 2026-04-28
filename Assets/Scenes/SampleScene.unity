@@ -1,4 +1,4 @@
-%YAML 1.1
+﻿%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!29 &1
 OcclusionCullingSettings:
@@ -839,13 +839,21 @@ MonoBehaviour:
   arcSegments: 28
   verticalDropPerArc: 16
   alternateLeftRightTurns: 1
+  randomizeCourse: 1
+  randomizeSeedEachRun: 1
+  courseRandomSeed: 0
+  legStraightLengthJitter: 34
+  arcSweepDegreesJitter: 38
+  arcRadiusJitter: 30
+  verticalDropPerArcJitter: 11
+  firstStraightLengthJitter: 24
   trackWidth: 15
   widthSegments: 4
   randomizeTextureUvs: 1
-  textureUvAlongScale: 0.018
-  textureUvAcrossScale: 1.8
-  textureUvSizeRandom: {x: 0.55, y: 1.55}
-  textureUvPlacementJitter: 0.45
+  textureUvAlongScale: 0.026
+  textureUvAcrossScale: 1.05
+  textureUvSizeRandom: {x: 0.35, y: 2.2}
+  textureUvPlacementJitter: 0.9
   wallHeight: 4.5
   wallThickness: 2.8
   wallInsetFromTrackEdge: 0
@@ -872,9 +880,16 @@ MonoBehaviour:
   bottleScale: 1
   maxBottleSpawnSlopeDegrees: 6
   buildEndBowlingRack: 1
-  endRackDistanceFromWall: 18
+  endRackDistanceFromWall: 32
   endRackPinSpacing: 3.2
-  finishTriggerDepth: 6
+  finishTriggerDepth: 2.5
+  buildFans: 1
+  fanCount: 14
+  fanResourcePath: Fans/fan_blade
+  fanWindAcceleration: 24
+  fanWindLength: 14
+  fanScale: 1.5
+  fanVisualEulerOffset: {x: 270, y: 0, z: 0}
 --- !u!64 &2012845705
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -909,9 +924,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f1e2d3c4b5a697889aab0c1d2e3f4051, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  baseMapTiling: {x: 0.65, y: 4.5}
+  baseMapTiling: {x: 1.1, y: 2.2}
   randomizeTiling: 1
-  tilingRandomMultiplier: {x: 0.85, y: 1.15}
+  tilingRandomMultiplier: {x: 0.65, y: 1.45}
   randomizeTextureOffset: 1
   oceanicResourceFolder: OceanicFloes
   useAdvancedOceanicMaps: 0
