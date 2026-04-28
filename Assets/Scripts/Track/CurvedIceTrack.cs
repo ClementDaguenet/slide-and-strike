@@ -54,6 +54,17 @@ public class CurvedIceTrack : MonoBehaviour
     [SerializeField] float colorCollectibleRadius = 0.75f;
     [SerializeField] float colorCollectibleCollectionRadius = 1.25f;
     [SerializeField] float colorCollectibleDuration = 5f;
+    [SerializeField] bool buildBottlePins = true;
+    [SerializeField] [Min(0)] int bottlePinCount = 18;
+    [SerializeField] string bottleResourcePath = "Bottles/BOTTLE_5";
+    [SerializeField] float bottleGroundPadding = 0.08f;
+    [SerializeField] float bottleWorldHeight = 4.05f;
+    [SerializeField] float bottleScale = 1f;
+    [SerializeField] float maxBottleSpawnSlopeDegrees = 6f;
+    [SerializeField] bool buildEndBowlingRack = true;
+    [SerializeField] float endRackDistanceFromWall = 18f;
+    [SerializeField] float endRackPinSpacing = 3.2f;
+    [SerializeField] float finishTriggerDepth = 6f;
 
     [SerializeField] bool generateOnAwake = true;
 
@@ -64,6 +75,8 @@ public class CurvedIceTrack : MonoBehaviour
     Transform _wallEnd;
     Transform _safetyNet;
     Transform _collectiblesRoot;
+    Transform _bottlesRoot;
+    Transform _finishTrigger;
 
     void Awake()
     {
@@ -227,8 +240,16 @@ public class CurvedIceTrack : MonoBehaviour
         BuildEdgeWalls(mids, rights);
         if (buildSafetyNetCollider)
             BuildSafetyNetCollider();
+        if (Application.isPlaying)
+            BottleScore.Reset();
         if (Application.isPlaying && buildColorCollectibles)
             BuildColorCollectibles(mids, rights, seed);
+        if (Application.isPlaying && buildBottlePins)
+            BuildBottlePins(mids, rights, seed);
+        if (Application.isPlaying && buildEndBowlingRack)
+            BuildEndBowlingRack(mids, rights);
+        if (Application.isPlaying)
+            BuildFinishTrigger(mids, rights);
 
         transform.localRotation = Quaternion.Euler(0f, trackYawDegrees, 0f);
     }
@@ -348,6 +369,20 @@ public class CurvedIceTrack : MonoBehaviour
             var t = transform.Find("ColorCollectibles");
             if (t != null)
                 _collectiblesRoot = t;
+        }
+
+        if (_bottlesRoot == null)
+        {
+            var t = transform.Find("BottlePins");
+            if (t != null)
+                _bottlesRoot = t;
+        }
+
+        if (_finishTrigger == null)
+        {
+            var t = transform.Find("FinishTrigger");
+            if (t != null)
+                _finishTrigger = t;
         }
     }
 
@@ -525,6 +560,174 @@ public class CurvedIceTrack : MonoBehaviour
         }
     }
 
+    void BuildBottlePins(List<Vector3> mids, List<Vector3> rights, int seed)
+    {
+        EnsureBottleRoot();
+        ClearChildren(_bottlesRoot);
+        if (bottlePinCount <= 0 || mids.Count < 24)
+            return;
+
+        var prefab = Resources.Load<GameObject>(bottleResourcePath);
+        if (prefab == null)
+            return;
+
+        var rng = new System.Random(seed ^ 0x75533b1);
+        int min = Mathf.Min(12, mids.Count - 1);
+        int max = Mathf.Max(min + 1, mids.Count - 10);
+        var flatRows = BottleSpawnRows(mids, min, max);
+        if (flatRows.Count == 0)
+            return;
+
+        for (int i = 0; i < bottlePinCount; i++)
+        {
+            float t = (i + 0.5f) / bottlePinCount;
+            int rowIndex = Mathf.RoundToInt(Mathf.Lerp(0, flatRows.Count - 1, t));
+            rowIndex = Mathf.Clamp(rowIndex + rng.Next(-2, 3), 0, flatRows.Count - 1);
+            int row = flatRows[rowIndex];
+            float lateral = ((float)rng.NextDouble() * 2f - 1f) * trackWidth * 0.34f;
+            Vector3 p = mids[row] + rights[row] * lateral;
+            float yaw = (float)rng.NextDouble() * 360f;
+            CreateBottlePin(prefab, p, Quaternion.Euler(0f, yaw, 0f));
+        }
+    }
+
+    void BuildEndBowlingRack(List<Vector3> mids, List<Vector3> rights)
+    {
+        EnsureBottleRoot();
+        if (mids.Count < 4)
+            return;
+
+        var prefab = Resources.Load<GameObject>(bottleResourcePath);
+        if (prefab == null)
+            return;
+
+        int last = mids.Count - 1;
+        Vector3 forward = mids[last] - mids[last - 1];
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.001f)
+            forward = Vector3.forward;
+        forward.Normalize();
+        Vector3 right = rights[last];
+        right.y = 0f;
+        if (right.sqrMagnitude < 0.001f)
+            right = Vector3.Cross(Vector3.up, forward);
+        right.Normalize();
+
+        Vector3 frontPin = mids[last] - forward * endRackDistanceFromWall;
+        int created = 0;
+        for (int row = 0; row < 4; row++)
+        {
+            int count = row + 1;
+            for (int col = 0; col < count; col++)
+            {
+                float lateral = (col - row * 0.5f) * endRackPinSpacing;
+                Vector3 p = frontPin + forward * (row * endRackPinSpacing) + right * lateral;
+                CreateBottlePin(prefab, p, Quaternion.LookRotation(forward, Vector3.up));
+                created++;
+                if (created >= 10)
+                    return;
+            }
+        }
+    }
+
+    void BuildFinishTrigger(List<Vector3> mids, List<Vector3> rights)
+    {
+        if (mids.Count < 2)
+            return;
+
+        EnsureFinishTrigger();
+        int last = mids.Count - 1;
+        Vector3 forward = mids[last] - mids[last - 1];
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.001f)
+            forward = Vector3.forward;
+        forward.Normalize();
+
+        _finishTrigger.localPosition = mids[last] - forward * (finishTriggerDepth * 0.5f);
+        _finishTrigger.localRotation = Quaternion.LookRotation(forward, Vector3.up);
+        var box = _finishTrigger.GetComponent<BoxCollider>();
+        box.isTrigger = true;
+        box.center = new Vector3(0f, 3f, 0f);
+        box.size = new Vector3(trackWidth + 5f, 8f, finishTriggerDepth);
+    }
+
+    void CreateBottlePin(GameObject prefab, Vector3 localPosition, Quaternion localRotation)
+    {
+        var go = new GameObject("BottlePin");
+        go.transform.SetParent(_bottlesRoot, false);
+        go.transform.localPosition = localPosition + Vector3.up * bottleGroundPadding;
+        go.transform.localRotation = localRotation;
+
+        GameObject visual = Instantiate(prefab, go.transform);
+        visual.name = "BOTTLE_5_Visual";
+        visual.transform.localPosition = Vector3.zero;
+        visual.transform.localRotation = Quaternion.identity;
+        visual.transform.localScale = Vector3.one * bottleScale;
+        StripImportedSceneComponents(visual);
+        NormalizeBottleVisual(visual, bottleWorldHeight);
+        CenterBottleVisualOnRoot(visual, go.transform.position);
+        ConfigureBottlePhysics(go);
+        IgnoreBottleWallCollisions(go);
+    }
+
+    List<int> BottleSpawnRows(List<Vector3> mids, int min, int max)
+    {
+        var rows = new List<int>(Mathf.Max(0, max - min));
+        for (int i = min; i < max; i++)
+        {
+            Vector3 prev = mids[Mathf.Max(0, i - 1)];
+            Vector3 next = mids[Mathf.Min(mids.Count - 1, i + 1)];
+            Vector3 delta = next - prev;
+            float horizontal = new Vector2(delta.x, delta.z).magnitude;
+            if (horizontal < 0.001f)
+                continue;
+
+            float slopeDeg = Mathf.Atan2(Mathf.Abs(delta.y), horizontal) * Mathf.Rad2Deg;
+            if (slopeDeg <= maxBottleSpawnSlopeDegrees)
+                rows.Add(i);
+        }
+        return rows;
+    }
+
+    void EnsureBottleRoot()
+    {
+        if (_bottlesRoot != null)
+            return;
+
+        var t = transform.Find("BottlePins");
+        if (t != null)
+        {
+            _bottlesRoot = t;
+            return;
+        }
+
+        var go = new GameObject("BottlePins");
+        go.transform.SetParent(transform, false);
+        _bottlesRoot = go.transform;
+    }
+
+    void EnsureFinishTrigger()
+    {
+        if (_finishTrigger == null)
+        {
+            var t = transform.Find("FinishTrigger");
+            if (t != null)
+                _finishTrigger = t;
+        }
+
+        if (_finishTrigger == null)
+        {
+            var go = new GameObject("FinishTrigger");
+            go.transform.SetParent(transform, false);
+            _finishTrigger = go.transform;
+        }
+
+        if (_finishTrigger.GetComponent<BoxCollider>() == null)
+            _finishTrigger.gameObject.AddComponent<BoxCollider>();
+        if (_finishTrigger.GetComponent<TrackFinishTrigger>() == null)
+            _finishTrigger.gameObject.AddComponent<TrackFinishTrigger>();
+    }
+
     void EnsureCollectibleRoot()
     {
         if (_collectiblesRoot != null)
@@ -540,6 +743,106 @@ public class CurvedIceTrack : MonoBehaviour
         var go = new GameObject("ColorCollectibles");
         go.transform.SetParent(transform, false);
         _collectiblesRoot = go.transform;
+    }
+
+    void IgnoreBottleWallCollisions(GameObject bottle)
+    {
+        var bottleColliders = bottle.GetComponentsInChildren<Collider>();
+        IgnoreCollisionsWith(_wallLeft, bottleColliders);
+        IgnoreCollisionsWith(_wallRight, bottleColliders);
+    }
+
+    static void IgnoreCollisionsWith(Transform wall, Collider[] bottleColliders)
+    {
+        if (wall == null)
+            return;
+
+        var wallColliders = wall.GetComponentsInChildren<Collider>();
+        foreach (var bottleCollider in bottleColliders)
+        {
+            if (bottleCollider == null)
+                continue;
+            foreach (var wallCollider in wallColliders)
+            {
+                if (wallCollider != null)
+                    Physics.IgnoreCollision(bottleCollider, wallCollider, true);
+            }
+        }
+    }
+
+    static void StripImportedSceneComponents(GameObject go)
+    {
+        foreach (var light in go.GetComponentsInChildren<Light>(true))
+            Destroy(light);
+        foreach (var cam in go.GetComponentsInChildren<Camera>(true))
+            Destroy(cam);
+        foreach (var listener in go.GetComponentsInChildren<AudioListener>(true))
+            Destroy(listener);
+    }
+
+    static void NormalizeBottleVisual(GameObject go, float targetHeight)
+    {
+        if (targetHeight <= 0f || !TryGetRendererBounds(go, out Bounds b) || b.size.y <= 0.001f)
+            return;
+
+        float scale = targetHeight / b.size.y;
+        go.transform.localScale *= scale;
+    }
+
+    static void CenterBottleVisualOnRoot(GameObject visual, Vector3 rootPosition)
+    {
+        if (!TryGetRendererBounds(visual, out Bounds b))
+            return;
+
+        Vector3 delta = rootPosition - new Vector3(b.center.x, b.min.y, b.center.z);
+        visual.transform.position += delta;
+    }
+
+    static bool TryGetRendererBounds(GameObject go, out Bounds bounds)
+    {
+        var renderers = go.GetComponentsInChildren<Renderer>();
+        if (renderers.Length == 0)
+        {
+            bounds = default;
+            return false;
+        }
+
+        bounds = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++)
+            bounds.Encapsulate(renderers[i].bounds);
+        return true;
+    }
+
+    static void ConfigureBottlePhysics(GameObject go)
+    {
+        var rb = go.GetComponent<Rigidbody>();
+        if (rb == null)
+            rb = go.AddComponent<Rigidbody>();
+        rb.mass = 0.7f;
+        rb.linearDamping = 0.08f;
+        rb.angularDamping = 0.05f;
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+
+        if (go.GetComponent<Collider>() == null)
+            AddBoundsCollider(go);
+        if (go.GetComponent<KnockableBottle>() == null)
+            go.AddComponent<KnockableBottle>();
+    }
+
+    static void AddBoundsCollider(GameObject go)
+    {
+        if (!TryGetRendererBounds(go, out Bounds b))
+        {
+            var fallback = go.AddComponent<CapsuleCollider>();
+            fallback.height = 1.8f;
+            fallback.radius = 0.32f;
+            return;
+        }
+
+        var col = go.AddComponent<BoxCollider>();
+        col.center = go.transform.InverseTransformPoint(b.center);
+        Vector3 size = go.transform.InverseTransformVector(b.size);
+        col.size = new Vector3(Mathf.Abs(size.x), Mathf.Abs(size.y), Mathf.Abs(size.z));
     }
 
     static void ClearChildren(Transform root)

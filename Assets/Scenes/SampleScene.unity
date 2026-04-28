@@ -864,6 +864,17 @@ MonoBehaviour:
   colorCollectibleRadius: 0.75
   colorCollectibleCollectionRadius: 1.25
   colorCollectibleDuration: 5
+  buildBottlePins: 1
+  bottlePinCount: 18
+  bottleResourcePath: Bottles/BOTTLE_5
+  bottleGroundPadding: 0.08
+  bottleWorldHeight: 4.05
+  bottleScale: 1
+  maxBottleSpawnSlopeDegrees: 6
+  buildEndBowlingRack: 1
+  endRackDistanceFromWall: 18
+  endRackPinSpacing: 3.2
+  finishTriggerDepth: 6
 --- !u!64 &2012845705
 MeshCollider:
   m_ObjectHideFlags: 0

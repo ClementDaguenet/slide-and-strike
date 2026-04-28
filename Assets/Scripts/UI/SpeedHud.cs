@@ -9,12 +9,20 @@ public class SpeedHud : MonoBehaviour
     [SerializeField] string targetName = "pinguin-black";
     [SerializeField] Rigidbody targetRigidbody;
     Text _label;
+    Text _scoreLabel;
+    Text _finishLabel;
     Rigidbody _target;
 
     void Awake()
     {
         EnsureEventSystem();
         BuildUi();
+        BottleScore.Finished += OnFinished;
+    }
+
+    void OnDestroy()
+    {
+        BottleScore.Finished -= OnFinished;
     }
 
     static void EnsureEventSystem()
@@ -72,11 +80,59 @@ public class SpeedHud : MonoBehaviour
         var outline = textGo.AddComponent<Outline>();
         outline.effectColor = new Color(0f, 0.1f, 0.15f, 0.92f);
         outline.effectDistance = new Vector2(2f, -2f);
+
+        var scoreGo = new GameObject("BottleScoreText");
+        scoreGo.transform.SetParent(canvasGo.transform, false);
+        var scoreRt = scoreGo.AddComponent<RectTransform>();
+        scoreRt.anchorMin = new Vector2(0f, 1f);
+        scoreRt.anchorMax = new Vector2(0f, 1f);
+        scoreRt.pivot = new Vector2(0f, 1f);
+        scoreRt.anchoredPosition = new Vector2(28f, -28f);
+        scoreRt.sizeDelta = new Vector2(520f, 72f);
+
+        _scoreLabel = scoreGo.AddComponent<Text>();
+        _scoreLabel.font = _label.font;
+        _scoreLabel.fontSize = 38;
+        _scoreLabel.fontStyle = FontStyle.Bold;
+        _scoreLabel.color = new Color(0.95f, 0.98f, 1f);
+        _scoreLabel.alignment = TextAnchor.UpperLeft;
+        _scoreLabel.text = "Bouteilles: 0";
+        _scoreLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+        _scoreLabel.verticalOverflow = VerticalWrapMode.Overflow;
+
+        var scoreOutline = scoreGo.AddComponent<Outline>();
+        scoreOutline.effectColor = new Color(0f, 0.1f, 0.15f, 0.92f);
+        scoreOutline.effectDistance = new Vector2(2f, -2f);
+
+        var finishGo = new GameObject("FinishText");
+        finishGo.transform.SetParent(canvasGo.transform, false);
+        var finishRt = finishGo.AddComponent<RectTransform>();
+        finishRt.anchorMin = new Vector2(0.5f, 0.5f);
+        finishRt.anchorMax = new Vector2(0.5f, 0.5f);
+        finishRt.pivot = new Vector2(0.5f, 0.5f);
+        finishRt.anchoredPosition = Vector2.zero;
+        finishRt.sizeDelta = new Vector2(1100f, 260f);
+
+        _finishLabel = finishGo.AddComponent<Text>();
+        _finishLabel.font = _label.font;
+        _finishLabel.fontSize = 64;
+        _finishLabel.fontStyle = FontStyle.Bold;
+        _finishLabel.color = new Color(0.95f, 0.98f, 1f);
+        _finishLabel.alignment = TextAnchor.MiddleCenter;
+        _finishLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+        _finishLabel.verticalOverflow = VerticalWrapMode.Overflow;
+        _finishLabel.gameObject.SetActive(false);
+
+        var finishOutline = finishGo.AddComponent<Outline>();
+        finishOutline.effectColor = new Color(0f, 0.1f, 0.15f, 0.95f);
+        finishOutline.effectDistance = new Vector2(3f, -3f);
     }
 
     void LateUpdate()
     {
         if (_label == null)
+            return;
+        if (BottleScore.IsFinished)
             return;
         if (_target == null)
         {
@@ -94,6 +150,21 @@ public class SpeedHud : MonoBehaviour
         float ms = _target.linearVelocity.magnitude;
         float kmh = ms * 3.6f;
         _label.text = $"{kmh:F1} km/h";
+        if (_scoreLabel != null)
+            _scoreLabel.text = $"Bouteilles: {BottleScore.Count}";
+    }
+
+    void OnFinished(int score)
+    {
+        if (_label != null)
+            _label.gameObject.SetActive(false);
+        if (_scoreLabel != null)
+            _scoreLabel.gameObject.SetActive(false);
+        if (_finishLabel == null)
+            return;
+
+        _finishLabel.text = $"Félicitations\nBouteilles shootées : {score}";
+        _finishLabel.gameObject.SetActive(true);
     }
 
     static Font CreateUiFont()
