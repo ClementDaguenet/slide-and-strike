@@ -20,6 +20,7 @@ public class PauseMenu : MonoBehaviour
     {
         EnsureEventSystem();
         BuildUi();
+        BottleScore.Finished += OnFinished;
     }
 
     void Update()
@@ -33,9 +34,12 @@ public class PauseMenu : MonoBehaviour
 
     void OnDestroy()
     {
+        BottleScore.Finished -= OnFinished;
         if (_paused)
             Time.timeScale = 1f;
     }
+
+    void OnFinished(int _) => SetPaused(true);
 
     public void Resume()
     {
