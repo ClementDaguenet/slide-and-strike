@@ -83,6 +83,16 @@ Thumbs.db.meta
 /.idea/
 .idea/**
 
+# Claude Code local settings
+.claude/
+
+# Visual Studio new solution format
+*.slnx
+.vsconfig
+
+# Unity recovery files
+Assets/_Recovery/
+
 # Asset Hunter build info
 *.ahbuildinfo
 
