@@ -93,14 +93,19 @@ public class PenguinPowerUpHud : MonoBehaviour
 
     void CreateSlot(Transform parent, int index, out Image bg, out RawImage icon)
     {
+        const float slotSize = 92f;
+        const float slotSpacing = 98f;
+        const float slotX = 30f;
+        const float slotTopY = 120f;
+
         var go = new GameObject("PowerUpSlot_" + index);
         go.transform.SetParent(parent, false);
         var rt = go.AddComponent<RectTransform>();
         rt.anchorMin = new Vector2(0f, 0.5f);
         rt.anchorMax = new Vector2(0f, 0.5f);
         rt.pivot = new Vector2(0f, 0.5f);
-        rt.anchoredPosition = new Vector2(30f, 90f - index * 74f);
-        rt.sizeDelta = new Vector2(68f, 68f);
+        rt.anchoredPosition = new Vector2(slotX, slotTopY - index * slotSpacing);
+        rt.sizeDelta = new Vector2(slotSize, slotSize);
 
         bg = go.AddComponent<Image>();
         bg.color = new Color(0f, 0.08f, 0.12f, 0.65f);
@@ -108,8 +113,8 @@ public class PenguinPowerUpHud : MonoBehaviour
         var iconGo = new GameObject("Icon");
         iconGo.transform.SetParent(go.transform, false);
         var iconRt = iconGo.AddComponent<RectTransform>();
-        iconRt.anchorMin = new Vector2(0.1f, 0.1f);
-        iconRt.anchorMax = new Vector2(0.9f, 0.9f);
+        iconRt.anchorMin = new Vector2(0.08f, 0.08f);
+        iconRt.anchorMax = new Vector2(0.92f, 0.92f);
         iconRt.offsetMin = Vector2.zero;
         iconRt.offsetMax = Vector2.zero;
 
