@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+using System.Collections;
+using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
@@ -39,7 +40,13 @@ public class PauseMenu : MonoBehaviour
             Time.timeScale = 1f;
     }
 
-    void OnFinished(int _) => SetPaused(true);
+    void OnFinished(int _) => StartCoroutine(ShowMenuAfterDelay(3f));
+
+    IEnumerator ShowMenuAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        SetPaused(true);
+    }
 
     public void Resume()
     {
