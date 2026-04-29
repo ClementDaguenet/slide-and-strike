@@ -92,6 +92,7 @@ Thumbs.db.meta
 
 # Unity recovery files
 Assets/_Recovery/
+Assets/_Recovery.meta
 
 # Asset Hunter build info
 *.ahbuildinfo
