@@ -1,10 +1,11 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.UI;
 
 [DefaultExecutionOrder(210)]
 public class PenguinPowerUpHud : MonoBehaviour
 {
-    Text[] _slots;
+    Image[] _slotBgs;
+    RawImage[] _slotIcons;
     Image _cooldownFill;
     Text _cooldownText;
     PenguinPowerUpController _controller;
@@ -53,9 +54,10 @@ public class PenguinPowerUpHud : MonoBehaviour
         scaler.matchWidthOrHeight = 0.5f;
         canvasGo.AddComponent<GraphicRaycaster>();
 
-        _slots = new Text[3];
-        for (int i = 0; i < _slots.Length; i++)
-            _slots[i] = CreateSlot(canvasGo.transform, i);
+        _slotBgs = new Image[3];
+        _slotIcons = new RawImage[3];
+        for (int i = 0; i < 3; i++)
+            CreateSlot(canvasGo.transform, i, out _slotBgs[i], out _slotIcons[i]);
 
         var back = CreateImage(canvasGo.transform, "PowerUpCooldownBack", new Color(0f, 0.08f, 0.12f, 0.72f));
         var rt = back.rectTransform;
@@ -89,7 +91,7 @@ public class PenguinPowerUpHud : MonoBehaviour
         _cooldownText.text = "";
     }
 
-    Text CreateSlot(Transform parent, int index)
+    void CreateSlot(Transform parent, int index, out Image bg, out RawImage icon)
     {
         var go = new GameObject("PowerUpSlot_" + index);
         go.transform.SetParent(parent, false);
@@ -98,50 +100,50 @@ public class PenguinPowerUpHud : MonoBehaviour
         rt.anchorMax = new Vector2(0f, 0.5f);
         rt.pivot = new Vector2(0f, 0.5f);
         rt.anchoredPosition = new Vector2(30f, 90f - index * 74f);
-        rt.sizeDelta = new Vector2(230f, 58f);
+        rt.sizeDelta = new Vector2(68f, 68f);
 
-        var bg = go.AddComponent<Image>();
+        bg = go.AddComponent<Image>();
         bg.color = new Color(0f, 0.08f, 0.12f, 0.65f);
 
-        var textGo = new GameObject("Label");
-        textGo.transform.SetParent(go.transform, false);
-        var textRt = textGo.AddComponent<RectTransform>();
-        textRt.anchorMin = Vector2.zero;
-        textRt.anchorMax = Vector2.one;
-        textRt.offsetMin = Vector2.zero;
-        textRt.offsetMax = Vector2.zero;
+        var iconGo = new GameObject("Icon");
+        iconGo.transform.SetParent(go.transform, false);
+        var iconRt = iconGo.AddComponent<RectTransform>();
+        iconRt.anchorMin = new Vector2(0.1f, 0.1f);
+        iconRt.anchorMax = new Vector2(0.9f, 0.9f);
+        iconRt.offsetMin = Vector2.zero;
+        iconRt.offsetMax = Vector2.zero;
 
-        var text = textGo.AddComponent<Text>();
-        text.font = CreateUiFont();
-        text.fontSize = 25;
-        text.fontStyle = FontStyle.Bold;
-        text.alignment = TextAnchor.MiddleCenter;
-        text.color = Color.white;
-        text.text = "-";
+        icon = iconGo.AddComponent<RawImage>();
+        icon.color = Color.clear;
 
-        var outline = textGo.AddComponent<Outline>();
-        outline.effectColor = new Color(0f, 0.1f, 0.15f, 0.9f);
-        outline.effectDistance = new Vector2(2f, -2f);
-        return text;
+        var fitter = iconGo.AddComponent<AspectRatioFitter>();
+        fitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+        fitter.aspectRatio = 1f;
     }
 
     void Refresh()
     {
-        if (_slots == null || _controller == null)
+        if (_slotBgs == null || _controller == null)
             return;
 
         var stored = _controller.StoredPowerUps();
-        for (int i = 0; i < _slots.Length; i++)
+        for (int i = 0; i < _slotBgs.Length; i++)
         {
             if (i < stored.Length)
             {
-                _slots[i].transform.parent.gameObject.SetActive(true);
-                _slots[i].text = Label(stored[i]);
-                _slots[i].color = ColorFor(stored[i]);
+                _slotBgs[i].gameObject.SetActive(true);
+                var c = ColorFor(stored[i]);
+                _slotBgs[i].color = new Color(c.r, c.g, c.b, 0.65f);
+                var tex = IconTexture(stored[i]);
+                _slotIcons[i].texture = tex;
+                _slotIcons[i].color = tex != null ? Color.white : Color.clear;
+                if (tex != null)
+                    _slotIcons[i].GetComponent<AspectRatioFitter>().aspectRatio =
+                        (float)tex.width / tex.height;
             }
             else
             {
-                _slots[i].transform.parent.gameObject.SetActive(false);
+                _slotBgs[i].gameObject.SetActive(false);
             }
         }
 
@@ -168,6 +170,20 @@ public class PenguinPowerUpHud : MonoBehaviour
         var image = go.AddComponent<Image>();
         image.color = color;
         return image;
+    }
+
+    static Texture2D IconTexture(PenguinPowerUpType type)
+    {
+        string name = type switch
+        {
+            PenguinPowerUpType.Red   => "piment-icon",
+            PenguinPowerUpType.Blue  => "giga-icon",
+            PenguinPowerUpType.Green => "clone-icon",
+            PenguinPowerUpType.Gray  => "aimant-icon",
+            PenguinPowerUpType.Pink  => "bouclier-icon",
+            _                        => null
+        };
+        return name != null ? Resources.Load<Texture2D>("UI/PowerUpIcons/" + name) : null;
     }
 
     static string Label(PenguinPowerUpType type)
