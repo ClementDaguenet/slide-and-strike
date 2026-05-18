@@ -62,7 +62,27 @@ public class CurvedIceTrack : MonoBehaviour
     [SerializeField] float colorCollectibleHeight = 1.05f;
     [SerializeField] float colorCollectibleRadius = 0.75f;
     [SerializeField] float colorCollectibleCollectionRadius = 1.25f;
-    [SerializeField] float colorCollectibleDuration = 5f;
+    [SerializeField] string redPowerUpResourcePath = "Collectibles/Piment/Meshy_AI_Red_Chili_Pepper_0429142225_texture";
+    [SerializeField] string redPimentTextureResourceFolder = "Collectibles/Piment";
+    [SerializeField] string redPimentTextureBaseName = "Meshy_AI_Red_Chili_Pepper_0429142225_texture";
+    [SerializeField] string grayMagnetPowerUpResourcePath = "Collectibles/Magnet/Meshy_AI_Red_and_blue_U_shaped_0518072051_texture";
+    [SerializeField] string grayMagnetTextureResourceFolder = "Collectibles/Magnet";
+    [SerializeField] string grayMagnetTextureBaseName = "Meshy_AI_Red_and_blue_U_shaped_0518072051_texture";
+    [SerializeField] string blueGigaPowerUpResourcePath = "Collectibles/Giga/Meshy_AI_Growing_Up_Penguin_0518075000_texture";
+    [SerializeField] string blueGigaTextureResourceFolder = "Collectibles/Giga";
+    [SerializeField] string blueGigaTextureBaseName = "Meshy_AI_Growing_Up_Penguin_0518075000_texture";
+    [SerializeField] float blueGigaCollectibleHeightMultiplier = 3f;
+    [SerializeField] Vector3 blueGigaCollectibleLocalEuler = new Vector3(-90f, 0f, 0f);
+    [SerializeField] string pinkShieldPowerUpResourcePath = "Collectibles/Shield/Meshy_AI_Blue_Shield_Crest_0518072842_texture";
+    [SerializeField] string pinkShieldTextureResourceFolder = "Collectibles/Shield";
+    [SerializeField] string pinkShieldTextureBaseName = "Meshy_AI_Blue_Shield_Crest_0518072842_texture";
+    [SerializeField] Vector3 pinkShieldCollectibleLocalEuler = new Vector3(-90f, 0f, 0f);
+    [SerializeField] float pinkShieldCollectibleHeightMultiplier = 3f;
+    [SerializeField] string greenClonePowerUpResourcePath = "Collectibles/Clone/Meshy_AI_Penguin_Duo_0518073303_texture";
+    [SerializeField] string greenCloneTextureResourceFolder = "Collectibles/Clone";
+    [SerializeField] string greenCloneTextureBaseName = "Meshy_AI_Penguin_Duo_0518073303_texture";
+    [SerializeField] Vector3 greenCloneCollectibleLocalEuler = new Vector3(-90f, 0f, 0f);
+    [SerializeField] float greenCloneCollectibleHeightMultiplier = 2f;
     [SerializeField] bool buildBottlePins = true;
     [SerializeField] [Min(0)] int bottlePinCount = 18;
     [SerializeField] string bottleResourcePath = "Bottles/BOTTLE_5";
@@ -96,6 +116,7 @@ public class CurvedIceTrack : MonoBehaviour
     Transform _fansRoot;
     List<Vector3> _lastMids;
     List<Vector3> _lastRights;
+
 #if UNITY_EDITOR
     bool _editorRebuildQueued;
 #endif
@@ -881,6 +902,7 @@ public class CurvedIceTrack : MonoBehaviour
 
     void BuildColorCollectibles(List<Vector3> mids, List<Vector3> rights, int seed)
     {
+        ResolveImportedPowerUpCatalog();
         EnsureCollectibleRoot();
         ClearChildren(_collectiblesRoot);
         if (colorCollectibleCount <= 0 || mids.Count < 20)
@@ -909,11 +931,151 @@ public class CurvedIceTrack : MonoBehaviour
             col.radius = colorCollectibleCollectionRadius / Mathf.Max(colorCollectibleRadius * 2f, 0.01f);
 
             var item = go.AddComponent<PenguinColorCollectible>();
-            item.Configure(skin, colorCollectibleDuration);
+            item.Configure(skin);
 
-            var renderer = go.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = BuildCollectibleMaterial(colors[skin - 1]);
+            ApplyColorCollectibleVisual(go.transform, skin, colors);
         }
+    }
+
+    void ResolveImportedPowerUpCatalog()
+    {
+        ResolvePowerUpPrefabPath(ref redPowerUpResourcePath,
+            "Collectibles/Piment/Meshy_AI_Red_Chili_Pepper_0429142225_texture",
+            "Piment/Piment/Meshy_AI_Red_Chili_Pepper_0429142225_texture");
+
+        ResolvePowerUpTextureFolder(ref redPimentTextureResourceFolder,
+            "Collectibles/Piment",
+            "Piment/Piment");
+
+        ResolvePowerUpPrefabPath(ref grayMagnetPowerUpResourcePath,
+            "Collectibles/Magnet/Meshy_AI_Red_and_blue_U_shaped_0518072051_texture",
+            "Magnet/Meshy_AI_Red_and_blue_U_shaped_0518072051_texture");
+
+        ResolvePowerUpTextureFolder(ref grayMagnetTextureResourceFolder,
+            "Collectibles/Magnet",
+            "Magnet");
+
+        ResolvePowerUpPrefabPath(ref pinkShieldPowerUpResourcePath,
+            "Collectibles/Shield/Meshy_AI_Blue_Shield_Crest_0518072842_texture",
+            "Shield/Meshy_AI_Blue_Shield_Crest_0518072842_texture");
+
+        ResolvePowerUpTextureFolder(ref pinkShieldTextureResourceFolder,
+            "Collectibles/Shield",
+            "Shield");
+
+        ResolvePowerUpPrefabPath(ref greenClonePowerUpResourcePath,
+            "Collectibles/Clone/Meshy_AI_Penguin_Duo_0518073303_texture",
+            "Clone/Meshy_AI_Penguin_Duo_0518073303_texture");
+
+        ResolvePowerUpTextureFolder(ref greenCloneTextureResourceFolder,
+            "Collectibles/Clone",
+            "Clone");
+
+        ResolvePowerUpPrefabPath(ref blueGigaPowerUpResourcePath,
+            "Collectibles/Giga/Meshy_AI_Growing_Up_Penguin_0518075000_texture",
+            "Giga/Meshy_AI_Growing_Up_Penguin_0518075000_texture");
+
+        ResolvePowerUpTextureFolder(ref blueGigaTextureResourceFolder,
+            "Collectibles/Giga",
+            "Giga");
+    }
+
+    static void ResolvePowerUpPrefabPath(ref string configured, string canonicalCollectiblesPath,
+        params string[] legacyPrefabPaths)
+    {
+        if (!string.IsNullOrWhiteSpace(configured) && Resources.Load<GameObject>(configured) != null)
+            return;
+
+        if (TryPickExistingPrefab(ref configured, canonicalCollectiblesPath))
+            return;
+
+        foreach (string legacyPath in legacyPrefabPaths)
+        {
+            if (TryPickExistingPrefab(ref configured, legacyPath))
+                return;
+        }
+
+        configured = canonicalCollectiblesPath;
+    }
+
+    static bool TryPickExistingPrefab(ref string configured, string candidate)
+    {
+        if (string.IsNullOrWhiteSpace(candidate))
+            return false;
+        if (Resources.Load<GameObject>(candidate) == null)
+            return false;
+        configured = candidate;
+        return true;
+    }
+
+    static void ResolvePowerUpTextureFolder(ref string configuredFolder, string canonicalFolder,
+        params string[] legacyFolders)
+    {
+        if (!string.IsNullOrWhiteSpace(configuredFolder) && FolderHasLoadedTextures(configuredFolder))
+            return;
+
+        if (TryPickExistingTextureFolder(ref configuredFolder, canonicalFolder))
+            return;
+
+        foreach (string legacyFolder in legacyFolders)
+        {
+            if (TryPickExistingTextureFolder(ref configuredFolder, legacyFolder))
+                return;
+        }
+
+        configuredFolder = canonicalFolder;
+    }
+
+    static bool TryPickExistingTextureFolder(ref string configuredFolder, string candidateFolder)
+    {
+        if (string.IsNullOrWhiteSpace(candidateFolder))
+            return false;
+        if (!FolderHasLoadedTextures(candidateFolder))
+            return false;
+        configuredFolder = candidateFolder;
+        return true;
+    }
+
+    static bool FolderHasLoadedTextures(string folder)
+    {
+        return Resources.LoadAll<Texture2D>(folder).Length > 0;
+    }
+
+    void ApplyColorCollectibleVisual(Transform root, int skinIndex, Color[] palette)
+    {
+        var kind = (PenguinPowerUpType)skinIndex;
+        if (kind == PenguinPowerUpType.Blue &&
+            ImportedPowerUpCollectibleVisual.TrySpawnUnderCollectible(root, blueGigaPowerUpResourcePath,
+                blueGigaTextureResourceFolder, blueGigaTextureBaseName, "GigaCollectibleVisual", colorCollectibleRadius,
+                blueGigaCollectibleHeightMultiplier, blueGigaCollectibleLocalEuler))
+            return;
+
+        if (kind == PenguinPowerUpType.Red &&
+            ImportedPowerUpCollectibleVisual.TrySpawnUnderCollectible(root, redPowerUpResourcePath,
+                redPimentTextureResourceFolder, redPimentTextureBaseName, "PimentCollectibleVisual", colorCollectibleRadius, 1f))
+            return;
+
+        if (kind == PenguinPowerUpType.Gray &&
+            ImportedPowerUpCollectibleVisual.TrySpawnUnderCollectible(root, grayMagnetPowerUpResourcePath,
+                grayMagnetTextureResourceFolder, grayMagnetTextureBaseName, "MagnetCollectibleVisual", colorCollectibleRadius, 0.5f))
+            return;
+
+        if (kind == PenguinPowerUpType.Green &&
+            ImportedPowerUpCollectibleVisual.TrySpawnUnderCollectible(root, greenClonePowerUpResourcePath,
+                greenCloneTextureResourceFolder, greenCloneTextureBaseName, "CloneCollectibleVisual", colorCollectibleRadius,
+                greenCloneCollectibleHeightMultiplier,
+                greenCloneCollectibleLocalEuler))
+            return;
+
+        if (kind == PenguinPowerUpType.Pink &&
+            ImportedPowerUpCollectibleVisual.TrySpawnUnderCollectible(root, pinkShieldPowerUpResourcePath,
+                pinkShieldTextureResourceFolder, pinkShieldTextureBaseName, "ShieldCollectibleVisual", colorCollectibleRadius,
+                pinkShieldCollectibleHeightMultiplier, pinkShieldCollectibleLocalEuler))
+            return;
+
+        var renderer = root.GetComponent<MeshRenderer>();
+        if (renderer != null)
+            renderer.sharedMaterial = BuildCollectibleMaterial(palette[skinIndex - 1]);
     }
 
     void BuildBottlePins(List<Vector3> mids, List<Vector3> rights, int seed)
@@ -1024,9 +1186,9 @@ public class CurvedIceTrack : MonoBehaviour
                 visual.transform.rotation = Quaternion.LookRotation(transform.TransformDirection(windDir), Vector3.up) *
                                             Quaternion.Euler(fanVisualEulerOffset);
                 visual.transform.localScale = Vector3.one * fanScale;
-                StripImportedSceneComponents(visual);
-                NormalizeVisualHeight(visual, 2.8f * fanScale);
-                CenterVisualOnRoot(visual, go.transform.position);
+                ImportedModelLayout.StripEmbeddedSceneObjects(visual);
+                ImportedModelLayout.ScaleToWorldHeight(visual, 2.8f * fanScale);
+                ImportedModelLayout.PositionBottomCenterNearWorldAnchor(visual, go.transform.position);
             }
             else
             {
@@ -1120,7 +1282,7 @@ public class CurvedIceTrack : MonoBehaviour
         visual.transform.localPosition = Vector3.zero;
         visual.transform.localRotation = Quaternion.identity;
         visual.transform.localScale = Vector3.one * bottleScale;
-        StripImportedSceneComponents(visual);
+        ImportedModelLayout.StripEmbeddedSceneObjects(visual);
         NormalizeBottleVisual(visual, bottleWorldHeight);
         CenterBottleVisualOnRoot(visual, go.transform.position);
         ConfigureBottlePhysics(go);
@@ -1244,57 +1406,14 @@ public class CurvedIceTrack : MonoBehaviour
         }
     }
 
-    static void StripImportedSceneComponents(GameObject go)
-    {
-        foreach (var light in go.GetComponentsInChildren<Light>(true))
-            Destroy(light);
-        foreach (var cam in go.GetComponentsInChildren<Camera>(true))
-            Destroy(cam);
-        foreach (var listener in go.GetComponentsInChildren<AudioListener>(true))
-            Destroy(listener);
-    }
-
     static void NormalizeBottleVisual(GameObject go, float targetHeight)
     {
-        NormalizeVisualHeight(go, targetHeight);
+        ImportedModelLayout.ScaleToWorldHeight(go, targetHeight);
     }
 
     static void CenterBottleVisualOnRoot(GameObject visual, Vector3 rootPosition)
     {
-        CenterVisualOnRoot(visual, rootPosition);
-    }
-
-    static void NormalizeVisualHeight(GameObject go, float targetHeight)
-    {
-        if (targetHeight <= 0f || !TryGetRendererBounds(go, out Bounds b) || b.size.y <= 0.001f)
-            return;
-
-        float scale = targetHeight / b.size.y;
-        go.transform.localScale *= scale;
-    }
-
-    static void CenterVisualOnRoot(GameObject visual, Vector3 rootPosition)
-    {
-        if (!TryGetRendererBounds(visual, out Bounds b))
-            return;
-
-        Vector3 delta = rootPosition - new Vector3(b.center.x, b.min.y, b.center.z);
-        visual.transform.position += delta;
-    }
-
-    static bool TryGetRendererBounds(GameObject go, out Bounds bounds)
-    {
-        var renderers = go.GetComponentsInChildren<Renderer>();
-        if (renderers.Length == 0)
-        {
-            bounds = default;
-            return false;
-        }
-
-        bounds = renderers[0].bounds;
-        for (int i = 1; i < renderers.Length; i++)
-            bounds.Encapsulate(renderers[i].bounds);
-        return true;
+        ImportedModelLayout.PositionBottomCenterNearWorldAnchor(visual, rootPosition);
     }
 
     static void ConfigureBottlePhysics(GameObject go)
@@ -1317,7 +1436,7 @@ public class CurvedIceTrack : MonoBehaviour
 
     static void AddBoundsCollider(GameObject go)
     {
-        if (!TryGetRendererBounds(go, out Bounds b))
+        if (!ImportedModelLayout.TryEncapsulatingRendererBounds(go, out Bounds b))
         {
             var fallback = go.AddComponent<CapsuleCollider>();
             fallback.height = 1.8f;

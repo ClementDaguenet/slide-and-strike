@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class CameraFollow : MonoBehaviour
 {
@@ -11,11 +11,8 @@ public class CameraFollow : MonoBehaviour
     [SerializeField] float cameraYawOffsetDegrees = 0f;
 
     [Header("Wall Avoidance")]
-    [Tooltip("Radius of the sphere cast used to keep the camera inside the track.")]
     [SerializeField] float collisionRadius = 0.3f;
-    [Tooltip("Minimum distance from the target when the camera is pushed forward by a wall.")]
     [SerializeField] float minDistanceFromTarget = 1.0f;
-    [Tooltip("Layers to collide against (leave Everything to auto-detect track walls).")]
     [SerializeField] LayerMask collisionLayers = ~0;
 
     Transform _target;
@@ -62,17 +59,11 @@ public class CameraFollow : MonoBehaviour
         Vector3 behind = yaw * (-hf * followDistance);
         Vector3 desiredPos = _target.position + behind + Vector3.up * heightAboveTarget;
 
-        // --- Wall avoidance --------------------------------------------------
-        // SphereCast from the look-at point toward the desired camera position.
-        // If the sphere hits track geometry (walls), pull the camera in front
-        // of the hit so it stays inside the slope.
         Vector3 lookPoint = _target.position + Vector3.up * lookAtHeightOnTarget;
         desiredPos = ResolveWallCollision(lookPoint, desiredPos);
 
         transform.position = Vector3.SmoothDamp(transform.position, desiredPos, ref _posVelocity, positionSmoothTime);
 
-        // Also clamp the smoothed position against walls so the camera never
-        // lerps through geometry while catching up to desiredPos.
         transform.position = ResolveWallCollision(lookPoint, transform.position);
 
         Vector3 toTarget = lookPoint - transform.position;
@@ -83,12 +74,6 @@ public class CameraFollow : MonoBehaviour
         transform.rotation = Quaternion.Slerp(transform.rotation, desiredRot, 1f - Mathf.Exp(-Time.deltaTime / Mathf.Max(0.01f, rotationSmoothTime)));
     }
 
-    /// <summary>
-    /// SphereCasts from <paramref name="origin"/> toward <paramref name="cameraPos"/>.
-    /// If the sphere hits a collider, returns a position just in front of the hit
-    /// (staying at least <see cref="minDistanceFromTarget"/> from the origin).
-    /// Otherwise returns <paramref name="cameraPos"/> unchanged.
-    /// </summary>
     Vector3 ResolveWallCollision(Vector3 origin, Vector3 cameraPos)
     {
         Vector3 dir = cameraPos - origin;
@@ -96,10 +81,8 @@ public class CameraFollow : MonoBehaviour
         if (dist < 1e-4f)
             return cameraPos;
 
-        dir /= dist; // normalize
+        dir /= dist;
 
-        // Cast distance is reduced by the collision radius so the sphere
-        // surface stops flush with the obstacle.
         float castDist = dist - collisionRadius;
         if (castDist <= 0f)
             return cameraPos;
@@ -107,7 +90,6 @@ public class CameraFollow : MonoBehaviour
         if (Physics.SphereCast(new Ray(origin, dir), collisionRadius, out RaycastHit hit,
                 castDist, collisionLayers, QueryTriggerInteraction.Ignore))
         {
-            // Place camera just in front of the hit, offset by the radius
             float safeDist = Mathf.Max(hit.distance, minDistanceFromTarget);
             return origin + dir * safeDist;
         }

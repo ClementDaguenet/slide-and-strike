@@ -6,9 +6,9 @@ public class PenguinColorCollectible : MonoBehaviour
     [SerializeField] float spinSpeed = 90f;
     bool _collected;
 
-    public void Configure(int nextSkinIndex, float effectDuration)
+    public void Configure(int skinIndex)
     {
-        powerUpType = (PenguinPowerUpType)nextSkinIndex;
+        powerUpType = (PenguinPowerUpType)skinIndex;
     }
 
     void Update()
